@@ -415,6 +415,7 @@ const EQUIPO_OVERRIDE = [
   { value: 'graciela',  label: 'Graciela',                     gid: '1198217449925374' },
   { value: 'eduardo',   label: 'Eduardo',                      gid: '' }, // GID pendiente
   { value: 'dakota',    label: 'Dakota',                       gid: '' }, // GID pendiente
+  { value: 'fauadz',   label: 'Fauadz',                       gid: '' }, // GID pendiente
 ]
 
 // ── Componente de Preview ────────────────────────────────────────────────────
