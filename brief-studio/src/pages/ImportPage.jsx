@@ -489,7 +489,7 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
         // Buscar GID del override para este batch
         const overrideValue = overrides[bi]
         const overrideObj = EQUIPO_OVERRIDE.find((m) => m.value === overrideValue)
-        const overrideGid = overrideObj?.gid || null
+        const overrideGid = (overrideObj?.gid && overrideObj.gid.trim() !== '') ? overrideObj.gid : null
 
         return {
           ...batch,

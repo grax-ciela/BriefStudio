@@ -18,6 +18,9 @@ export async function crearTareaAsana({
   objetivo,
   assigneeOverride,
 }) {
+  const assigneeOverrideFinal = (assigneeOverride && assigneeOverride.trim() !== '') ? assigneeOverride : null
+  console.log('[crearTareaAsana] assigneeOverride recibido:', assigneeOverride, '→ enviando:', assigneeOverrideFinal)
+
   const { data, error } = await supabase.functions.invoke('crear-tarea-asana', {
     body: {
       batch,
@@ -31,7 +34,7 @@ export async function crearTareaAsana({
       referencia,
       hooksCount,
       objetivo,
-      assigneeOverride: assigneeOverride || null,
+      assigneeOverride: assigneeOverrideFinal,
     },
   })
 

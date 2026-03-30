@@ -65,7 +65,7 @@ async function enviarAAsana(brief, batchNombre, batchFormatos, setBriefs, { onMi
       referencia: brief.referencia,
       hipotesis: brief.hipotesis,
       hooksCount: hooksCount || 1,
-      assigneeOverride: brief.asignado_override || null,
+      assigneeOverride: (brief.asignado_override && brief.asignado_override.trim() !== '') ? brief.asignado_override : null,
     })
 
     await supabase
