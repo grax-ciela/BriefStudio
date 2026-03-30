@@ -89,33 +89,9 @@ export default function GuidePage() {
         </section>
 
         {/* ── Soporte ── */}
-        <div style={{
-          padding: '1.25rem 1.5rem',
-          background: 'var(--color-surface)',
-          borderRadius: 'var(--radius-lg)',
-          border: '1px solid var(--color-border)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '1rem',
-          flexWrap: 'wrap',
-        }}>
-          <div>
-            <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text)', marginBottom: '0.2rem' }}>
-              ¿Tienes dudas técnicas?
-            </p>
-            <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-              Contacta a Grax — la app fue construida y es mantenida por ella.
-            </p>
-          </div>
-          <span style={{
-            fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.04em',
-            color: 'var(--color-primary)', background: 'rgba(11,29,58,0.06)',
-            padding: '0.35rem 0.875rem', borderRadius: 'var(--radius-pill)',
-          }}>
-            By Grax
-          </span>
-        </div>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', textAlign: 'center', paddingBottom: '0.5rem' }}>
+          Cualquier ayuda o sugerencia, por favor contactar a Grax.
+        </p>
 
       </div>
     </main>
