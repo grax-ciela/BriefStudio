@@ -1,5 +1,5 @@
 import { NavLink, Link } from 'react-router-dom'
-import { LayoutGrid, Upload, Settings, Plus } from 'lucide-react'
+import { LayoutGrid, Upload, Settings, Plus, BookOpen } from 'lucide-react'
 
 export default function Layout({ children }) {
   return (
@@ -30,6 +30,14 @@ export default function Layout({ children }) {
         </NavLink>
 
         <div className="sidebar-spacer" />
+
+        <NavLink
+          to="/guia"
+          className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
+        >
+          <BookOpen size={18} />
+          <span>Guía de Uso</span>
+        </NavLink>
 
         <div className="sidebar-item" style={{ opacity: 0.4, cursor: 'default' }}>
           <Settings size={18} />
