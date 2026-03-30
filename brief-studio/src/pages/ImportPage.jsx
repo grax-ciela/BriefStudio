@@ -496,10 +496,44 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
     })
   }
 
+  // Toggle masivo de producción por batch
+  const toggleBatchProd = (bi, batch, field) => {
+    setProduccionState((prev) => {
+      const next = { ...prev }
+      // Verificar si todos los briefs seleccionados del batch ya tienen este campo activo
+      const selectedBriefs = batch.briefs
+        .map((_, ri) => ({ ri, key: `${bi}-${ri}` }))
+        .filter(({ ri }) => selected.has(`brief-${bi}-${ri}`))
+      const allActive = selectedBriefs.every(({ key }) => next[key]?.[field])
+      // Si todos activos → desactivar todos. Si no → activar todos.
+      selectedBriefs.forEach(({ key }) => {
+        next[key] = { ...next[key], [field]: !allActive }
+      })
+      return next
+    })
+  }
+
   // Contar seleccionados
   const selectedBriefCount = batchesNuevos.reduce((acc, batch, bi) =>
     acc + batch.briefs.filter((_, ri) => selected.has(`brief-${bi}-${ri}`)).length, 0
   )
+
+  // Validación: cada brief seleccionado debe tener al menos grabación o edición marcada
+  const briefsSinProduccion = []
+  const briefsSinLink = []
+  batchesNuevos.forEach((batch, bi) => {
+    batch.briefs.forEach((brief, ri) => {
+      if (!selected.has(`brief-${bi}-${ri}`)) return
+      const prod = produccionState[`${bi}-${ri}`] || { grabacion: false, edicion: false }
+      if (!prod.grabacion && !prod.edicion) {
+        briefsSinProduccion.push({ batch: batch.nombre, concepto: brief.concepto, bi, ri })
+      }
+      if (!brief.link_brief) {
+        briefsSinLink.push({ batch: batch.nombre, concepto: brief.concepto, bi, ri })
+      }
+    })
+  })
+  const produccionValida = briefsSinProduccion.length === 0
 
   // Construir preview filtrado para importar (con override de asignación)
   const handleImportarSeleccionados = () => {
@@ -668,6 +702,34 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
                   {batch.briefs.filter((_, ri) => selected.has(`brief-${bi}-${ri}`)).length}/{batch.briefs.length} briefs
                 </span>
               </div>
+              {/* Toggles masivos de producción */}
+              <div style={{
+                padding: '0.35rem 1rem', borderBottom: '1px solid var(--color-border, #E2E8F0)',
+                display: 'flex', gap: '0.5rem', alignItems: 'center',
+                background: 'var(--color-bg, #F8F9FC)',
+              }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted, #A0AEC0)', fontWeight: 600 }}>
+                  Marcar todo:
+                </span>
+                <button type="button" onClick={() => toggleBatchProd(bi, batch, 'grabacion')}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '0.2rem',
+                    padding: '0.15rem 0.5rem', borderRadius: 4, fontSize: '0.68rem', fontWeight: 600,
+                    border: '1px solid rgba(239,68,68,0.3)', cursor: 'pointer', fontFamily: 'inherit',
+                    background: 'rgba(239,68,68,0.06)', color: '#ef4444',
+                  }}>
+                  🎬 Grabar todos
+                </button>
+                <button type="button" onClick={() => toggleBatchProd(bi, batch, 'edicion')}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '0.2rem',
+                    padding: '0.15rem 0.5rem', borderRadius: 4, fontSize: '0.68rem', fontWeight: 600,
+                    border: '1px solid rgba(168,85,247,0.3)', cursor: 'pointer', fontFamily: 'inherit',
+                    background: 'rgba(168,85,247,0.06)', color: '#a855f7',
+                  }}>
+                  ✂️ Editar todos
+                </button>
+              </div>
               {/* Briefs del batch con checkbox */}
               {batch.briefs.map((brief, ri) => {
                 const isSelected = selected.has(`brief-${bi}-${ri}`)
@@ -698,12 +760,17 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text, #1A202C)' }}>{brief.concepto}</span>
-                        {brief.link_brief && (
+                        {brief.link_brief ? (
                           <a href={brief.link_brief} target="_blank" rel="noopener noreferrer"
                             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.7rem', color: '#3b82f6', textDecoration: 'none', fontWeight: 600 }}
                             title={brief.link_brief}>
                             🔗 Doc
                           </a>
+                        ) : (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.68rem', color: '#f59e0b', fontWeight: 600 }}
+                            title="No se encontró link al documento original">
+                            ⚠️ Sin doc
+                          </span>
                         )}
                       </div>
                       {brief.angulo && (
@@ -721,6 +788,15 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
                             Hook {h.orden}
                           </span>
                         ))}
+                        {/* Alerta si no tiene producción marcada */}
+                        {isSelected && !prod.grabacion && !prod.edicion && (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '0.2rem',
+                            fontSize: '0.68rem', color: '#dc2626', fontWeight: 600,
+                          }}>
+                            ⛔ Producción
+                          </span>
+                        )}
                         {/* Producción toggles */}
                         <button type="button" onClick={() => toggleProd('grabacion')}
                           style={{
@@ -754,6 +830,45 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
         })}
       </div>
 
+      {/* Alertas de validación */}
+      {!produccionValida && selectedBriefCount > 0 && (
+        <div style={{
+          background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
+          padding: '0.75rem 1rem', marginBottom: '1rem',
+          display: 'flex', gap: '0.5rem', alignItems: 'flex-start',
+        }}>
+          <span style={{ fontSize: '1rem', flexShrink: 0 }}>⛔</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '0.8125rem', color: '#991b1b', marginBottom: '0.25rem' }}>
+              Debes definir si cada brief requiere Grabación o Edición antes de continuar
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#b91c1c' }}>
+              {briefsSinProduccion.length} brief{briefsSinProduccion.length !== 1 ? 's' : ''} sin producción definida:
+              {' '}{briefsSinProduccion.slice(0, 5).map(b => `"${b.concepto}"`).join(', ')}
+              {briefsSinProduccion.length > 5 && ` y ${briefsSinProduccion.length - 5} más...`}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {briefsSinLink.length > 0 && selectedBriefCount > 0 && (
+        <div style={{
+          background: '#fffbeb', border: '1px solid #fed7aa', borderRadius: 8,
+          padding: '0.75rem 1rem', marginBottom: '1rem',
+          display: 'flex', gap: '0.5rem', alignItems: 'flex-start',
+        }}>
+          <span style={{ fontSize: '1rem', flexShrink: 0 }}>⚠️</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '0.8125rem', color: '#92400e' }}>
+              {briefsSinLink.length} brief{briefsSinLink.length !== 1 ? 's' : ''} sin link al documento original
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#a16207', marginTop: '0.15rem' }}>
+              Puedes continuar, pero los briefs no tendrán enlace al documento fuente.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Acciones */}
       <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', alignItems: 'center' }}>
         <button
@@ -764,8 +879,9 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
         </button>
         <button
           className="btn btn-primary"
-          disabled={selectedBriefCount === 0 || importando}
+          disabled={selectedBriefCount === 0 || !produccionValida || importando}
           onClick={handleImportarSeleccionados}
+          title={!produccionValida ? 'Define grabación o edición para cada brief' : ''}
         >
           {importando
             ? 'Importando...'
