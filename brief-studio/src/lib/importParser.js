@@ -119,6 +119,14 @@ const HEADER_ALIASES = {
 
   'link al ad':     'link_ad',
   'link':           'link_ad',
+
+  'link al brief':        'link_brief',
+  'link brief':           'link_brief',
+  'link del brief':       'link_brief',
+  'brief link':           'link_brief',
+  'documento':            'link_brief',
+  'link al documento':    'link_brief',
+  'doc':                  'link_brief',
   'resultado':      'resultado',
   'resultados':     'resultado',
   'aprendizajes':   'aprendizajes',
@@ -508,6 +516,7 @@ export function construirPreview(filas, mapeo) {
       estado_hook:  val(fila, 'estado_hook'),
       plataforma:   val(fila, 'plataforma'),
       objetivo:     val(fila, 'objetivo'),
+      link_brief:   val(fila, 'link_brief'),
       _filaCSV:     fila._origIdx + 2,
     }
 
@@ -723,8 +732,9 @@ export async function ejecutarImport(preview, supabase, marcaDefault = 'mycocos'
           deseo:      brief.deseo      || null,
           hipotesis:  brief.descripcion || null,
           guion:      brief.guion      || null,
-          referencia: brief.referencia || null,
-          formato:    formatoLimpio,
+          referencia:  brief.referencia || null,
+          link_brief:  brief.link_brief || null,
+          formato:     formatoLimpio,
           ...(brief.asignado_override ? { asignado_override: brief.asignado_override } : {}),
         }
         console.log(`🔴 [importParser] brief.asignado_override recibido:`, brief.asignado_override)

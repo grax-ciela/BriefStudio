@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { batch, concepto, formato, marca, produccion, hook, angulo, deseo, referencia, hipotesis, hooksCount, objetivo, assigneeOverride } = await req.json()
+    const { batch, concepto, formato, marca, produccion, hook, angulo, deseo, referencia, hipotesis, hooksCount, objetivo, assigneeOverride, linkBrief } = await req.json()
 
     if (!concepto || !marca) {
       return new Response(JSON.stringify({ error: "Faltan campos: concepto, marca" }), { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } })
@@ -144,8 +144,12 @@ Deno.serve(async (req) => {
     // Título: [BATCH] - [CONCEPTO] - [marca]
     const titulo = `[${batch || "—"}] - ${concepto} - ${marca}`
 
-    // Descripción: hipótesis primero, luego detalles del brief
+    // Descripción: link al brief primero, luego hipótesis, luego detalles
     const descParts: string[] = []
+    if (linkBrief) {
+      descParts.push(`\ud83d\udd17 Link al Brief: ${linkBrief}`)
+      descParts.push("")
+    }
     if (hipotesis) {
       descParts.push(hipotesis)
     }

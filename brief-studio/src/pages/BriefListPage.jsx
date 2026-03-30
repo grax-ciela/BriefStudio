@@ -5,7 +5,7 @@ import { crearTareaAsana, descartarTareaAsana } from '../lib/asana'
 import { MARCA_ACTIVA } from '../lib/config'
 import Modal from '../components/Modal'
 import DropdownMenu from '../components/DropdownMenu'
-import { Send, Trash2, FolderOpen, FileText, RotateCcw, X, ChevronDown, ChevronRight, Plus, ExternalLink, MoreVertical, Edit3, ArrowRightLeft, Loader2 } from 'lucide-react'
+import { Send, Trash2, FolderOpen, FileText, RotateCcw, X, ChevronDown, ChevronRight, Plus, ExternalLink, MoreVertical, Edit3, ArrowRightLeft, Loader2, Link2 } from 'lucide-react'
 
 const CAMPOS = [
   { key: 'angulo',     label: 'Ángulo' },
@@ -69,6 +69,7 @@ async function enviarAAsana(brief, batchNombre, batchFormatos, setBriefs, { onMi
       hipotesis: brief.hipotesis,
       hooksCount: hooksCount || 1,
       assigneeOverride: (brief.asignado_override && brief.asignado_override.trim() !== '') ? brief.asignado_override : null,
+      linkBrief: brief.link_brief || null,
     })
 
     await supabase
@@ -213,6 +214,20 @@ function FilaBrief({ brief, batch, index, total, setBriefs, mostrarDescartados, 
           )}
         </div>
       </Link>
+
+      {/* Link al Brief (doc original) */}
+      {!estaDescartado && brief.link_brief && (
+        <a
+          href={brief.link_brief}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-link-brief"
+          title="Abrir documento del brief"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Link2 size={12} /> Doc
+        </a>
+      )}
 
       {/* Botón Asana / Badge asignado + enlace */}
       {!estaDescartado && (
@@ -641,6 +656,19 @@ function VistaPorBrief({ navigate }) {
             </h2>
             <TagsFaltantes brief={brief} />
           </Link>
+          {/* Link al Brief (doc original) */}
+          {brief.link_brief && (
+            <a
+              href={brief.link_brief}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-link-brief"
+              style={{ alignSelf: 'center' }}
+              title="Abrir documento del brief"
+            >
+              <Link2 size={12} /> Doc
+            </a>
+          )}
           {/* Botón Asana / Badge asignado + enlace */}
           {brief.enviado_asana
             ? <span style={{ display: 'inline-flex', alignItems: 'center', alignSelf: 'center', margin: '0 0.5rem' }}>

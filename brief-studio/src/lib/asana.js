@@ -17,6 +17,7 @@ export async function crearTareaAsana({
   hooksCount,
   objetivo,
   assigneeOverride,
+  linkBrief,
 }) {
   const assigneeOverrideFinal = (assigneeOverride && assigneeOverride.trim() !== '') ? assigneeOverride : null
   console.log('[crearTareaAsana] assigneeOverride recibido:', assigneeOverride, '→ enviando:', assigneeOverrideFinal)
@@ -35,6 +36,7 @@ export async function crearTareaAsana({
       hooksCount,
       objetivo,
       assigneeOverride: assigneeOverrideFinal,
+      linkBrief: linkBrief || null,
     },
   })
 
