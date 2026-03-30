@@ -5,7 +5,7 @@ import { crearTareaAsana, descartarTareaAsana } from '../lib/asana'
 import { MARCA_ACTIVA } from '../lib/config'
 import Modal from '../components/Modal'
 import DropdownMenu from '../components/DropdownMenu'
-import { Send, Trash2, FolderOpen, FileText, RotateCcw, X, ChevronDown, ChevronRight, Plus, ExternalLink, MoreVertical, Edit3, ArrowRightLeft } from 'lucide-react'
+import { Send, Trash2, FolderOpen, FileText, RotateCcw, X, ChevronDown, ChevronRight, Plus, ExternalLink, MoreVertical, Edit3, ArrowRightLeft, Loader2 } from 'lucide-react'
 
 const CAMPOS = [
   { key: 'angulo',     label: 'Ángulo' },
@@ -22,7 +22,7 @@ function extraerTaskGid(url) {
 }
 
 // ── Función para enviar brief a Asana ────────────────────────
-async function enviarAAsana(brief, batchNombre, batchFormatos, setBriefs, { onMissingHook } = {}) {
+async function enviarAAsana(brief, batchNombre, batchFormatos, setBriefs, { onMissingHook, silent } = {}) {
   // Obtener el primer hook del brief
   const { data: hookData, error: hookError } = await supabase
     .from('hooks')
@@ -34,8 +34,8 @@ async function enviarAAsana(brief, batchNombre, batchFormatos, setBriefs, { onMi
 
   if (hookError || !hookData) {
     if (onMissingHook) onMissingHook(brief.id)
-    else alert('⚠️ Falta agregar al menos un hook antes de enviar a Asana.')
-    return
+    else if (!silent) alert('⚠️ Falta agregar al menos un hook antes de enviar a Asana.')
+    return { ok: false, sinHook: true }
   }
 
   // Obtener conteo total de hooks
@@ -80,9 +80,11 @@ async function enviarAAsana(brief, batchNombre, batchFormatos, setBriefs, { onMi
       )
     )
 
-    alert(`✅ Tarea creada en Asana!\n\n${result.titulo}`)
+    if (!silent) alert(`✅ Tarea creada en Asana!\n\n${result.titulo}`)
+    return { ok: true, titulo: result.titulo }
   } catch (err) {
-    alert('❌ Error al crear tarea en Asana: ' + err.message)
+    if (!silent) alert('❌ Error al crear tarea en Asana: ' + err.message)
+    return { ok: false, error: err.message }
   }
 }
 
@@ -275,6 +277,29 @@ function VistaPorBatch({ navigate }) {
   const [modalValidacion, setModalValidacion] = useState(null) // { briefId }
   const [modalMover, setModalMover] = useState(null) // { briefId, batchIdActual }
   const [batchDestino, setBatchDestino] = useState('')
+  const [enviandoBatch, setEnviandoBatch] = useState({}) // { batchId: true }
+  const [modalResultado, setModalResultado] = useState(null) // { batchNombre, enviados, sinHook, errores }
+
+  const enviarTodoBatch = useCallback(async (batch) => {
+    const pendientes = briefs.filter(
+      (b) => b.batch_id === batch.id && !b.descartado && !b.enviado_asana
+    )
+    if (pendientes.length === 0) return
+
+    setEnviandoBatch((prev) => ({ ...prev, [batch.id]: true }))
+
+    let enviados = 0, sinHook = 0, errores = 0
+
+    for (const brief of pendientes) {
+      const res = await enviarAAsana(brief, batch.nombre, batch.formatos, setBriefs, { silent: true })
+      if (res?.sinHook) sinHook++
+      else if (res?.ok) enviados++
+      else errores++
+    }
+
+    setEnviandoBatch((prev) => ({ ...prev, [batch.id]: false }))
+    setModalResultado({ batchNombre: batch.nombre, enviados, sinHook, errores })
+  }, [briefs])
 
   const eliminarBatch = async (batch) => {
     const ok = window.confirm(
@@ -356,7 +381,7 @@ function VistaPorBatch({ navigate }) {
                 )}
               </div>
 
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                 <span style={{
                   fontSize: '0.75rem', fontWeight: 500, color: 'var(--color-text-muted)',
                   background: 'var(--color-bg)', border: '1px solid var(--color-border)',
@@ -364,6 +389,18 @@ function VistaPorBatch({ navigate }) {
                 }}>
                   {activos.length} {activos.length === 1 ? 'brief' : 'briefs'}
                 </span>
+                {activos.some((b) => !b.enviado_asana) && (
+                  <button
+                    className="btn-enviar-todo"
+                    disabled={!!enviandoBatch[batch.id]}
+                    onClick={() => enviarTodoBatch(batch)}
+                  >
+                    {enviandoBatch[batch.id]
+                      ? <><Loader2 size={13} className="spin" /> Enviando...</>
+                      : <><Send size={13} /> Enviar todo a Asana</>
+                    }
+                  </button>
+                )}
                 <Link to={`/briefs/new?batch_id=${batch.id}`}>
                   <button className="btn btn-primary btn-sm">+ Brief</button>
                 </Link>
@@ -468,6 +505,35 @@ function VistaPorBatch({ navigate }) {
       >
         <p>No podemos enviar este brief a Asana todavía.</p>
         <p style={{ marginTop: '0.5rem' }}>Agrega al menos un <strong>hook</strong> antes de enviar.</p>
+      </Modal>
+
+      {/* ── Modal Resultado Envío Masivo ── */}
+      <Modal
+        open={!!modalResultado}
+        onClose={() => setModalResultado(null)}
+        title="Envío a Asana completado"
+        footer={
+          <button className="btn-crema" onClick={() => setModalResultado(null)}>Listo</button>
+        }
+      >
+        <p style={{ marginBottom: '0.75rem' }}>
+          Batch: <strong>{modalResultado?.batchNombre}</strong>
+        </p>
+        {modalResultado?.enviados > 0 && (
+          <p style={{ color: '#4ade80', marginBottom: '0.375rem' }}>
+            ✅ {modalResultado.enviados} {modalResultado.enviados === 1 ? 'tarea creada' : 'tareas creadas'} en Asana
+          </p>
+        )}
+        {modalResultado?.sinHook > 0 && (
+          <p style={{ color: '#facc15', marginBottom: '0.375rem' }}>
+            ⚠️ {modalResultado.sinHook} {modalResultado.sinHook === 1 ? 'brief omitido' : 'briefs omitidos'} por falta de hook
+          </p>
+        )}
+        {modalResultado?.errores > 0 && (
+          <p style={{ color: '#f87171' }}>
+            ❌ {modalResultado.errores} {modalResultado.errores === 1 ? 'error' : 'errores'} al enviar
+          </p>
+        )}
       </Modal>
 
       {/* ── Modal Mover a otro Batch ── */}

@@ -1,5 +1,5 @@
 import { NavLink, Link } from 'react-router-dom'
-import { LayoutGrid, FolderOpen, Upload, Settings, Plus } from 'lucide-react'
+import { LayoutGrid, Upload, Settings, Plus } from 'lucide-react'
 
 export default function Layout({ children }) {
   return (
@@ -19,14 +19,6 @@ export default function Layout({ children }) {
         >
           <LayoutGrid size={18} />
           <span>Briefs</span>
-        </NavLink>
-
-        <NavLink
-          to="/batches"
-          className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
-        >
-          <FolderOpen size={18} />
-          <span>Batches</span>
         </NavLink>
 
         <NavLink
