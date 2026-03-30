@@ -24,6 +24,7 @@ function extraerTaskGid(url) {
 // ── Función para enviar brief a Asana ────────────────────────
 async function enviarAAsana(brief, batchNombre, batchFormatos, setBriefs, { onMissingHook, silent } = {}) {
   console.log('🔴 [enviarAAsana] Brief completo:', { id: brief.id, concepto: brief.concepto, asignado_override: brief.asignado_override })
+  console.log('🔴 [enviarAAsana] Todas las keys del brief:', Object.keys(brief))
 
   // Obtener el primer hook del brief
   const { data: hookData, error: hookError } = await supabase

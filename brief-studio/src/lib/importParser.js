@@ -776,7 +776,7 @@ export async function ejecutarImport(preview, supabase, marcaDefault = 'mycocos'
     const testId = creados[0].id
     const { data: verificacion, error: verErr } = await supabase
       .from('briefs')
-      .select('id, marca, batch_id')
+      .select('id, marca, batch_id, asignado_override')
       .eq('id', testId)
       .maybeSingle()
 
@@ -786,6 +786,7 @@ export async function ejecutarImport(preview, supabase, marcaDefault = 'mycocos'
       console.error('[importParser] 🔒 BRIEF INSERTADO PERO NO SE PUEDE LEER — RLS está bloqueando SELECT. El INSERT "funciona" pero los datos son invisibles.')
     } else {
       console.log('[importParser] ✅ Verificación post-insert OK. Brief leído:', JSON.stringify(verificacion))
+      console.log(`🔴 [importParser] VERIFICACIÓN asignado_override en BD: "${verificacion.asignado_override}" (${verificacion.asignado_override ? '✅ GUARDADO' : '❌ NULL'})`)
     }
   }
 
