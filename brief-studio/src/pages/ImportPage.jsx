@@ -413,9 +413,9 @@ const EQUIPO_OVERRIDE = [
   { value: 'ignacia',   label: 'Ignacia Vergara (Ina)',        gid: '1206322141323221' },
   { value: 'felex',     label: 'Felex',                        gid: '1201852562999880' },
   { value: 'graciela',  label: 'Graciela',                     gid: '1198217449925374' },
-  { value: 'eduardo',   label: 'Eduardo',                      gid: '' }, // GID pendiente
-  { value: 'dakota',    label: 'Dakota',                       gid: '' }, // GID pendiente
-  { value: 'fauadz',   label: 'Fauadz',                       gid: '' }, // GID pendiente
+  { value: 'eduardo',   label: 'Eduardo',                      gid: '1198565290227364' },
+  { value: 'dakota',    label: 'Dakota',                       gid: '1213786362764165' },
+  { value: 'fauadz',   label: 'Fauadz',                       gid: '1198216603476155' },
 ]
 
 // ── Componente de Preview ────────────────────────────────────────────────────
