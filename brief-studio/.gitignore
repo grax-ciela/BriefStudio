@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Archivos locales pesados
+*.zip
+Copia de brief-studio/
+.env.local
