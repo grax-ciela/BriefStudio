@@ -6,7 +6,8 @@ export default function Layout({ children }) {
     <div className="app-layout">
       <nav className="sidebar">
         <div className="sidebar-brand">
-          MyCOCOS<sup>&reg;</sup>
+          <span className="sidebar-brand-title">BRIEF STUDIO</span>
+          <span className="sidebar-brand-sub">By Grax</span>
         </div>
 
         <div className="sidebar-section-label">Principal</div>

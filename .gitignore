@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Archivos locales pesados
+*.zip
+Copia de brief-studio/
+.env.local
