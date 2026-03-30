@@ -15,7 +15,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { procesarCSV, fetchGoogleSheet } from '../lib/importParser';
+import { procesarCSV, fetchGoogleSheet } from './importParser.js';
 
 // ─────────────────────────────────────────────
 // Estilos inline (reemplazar con tu sistema de UI)
