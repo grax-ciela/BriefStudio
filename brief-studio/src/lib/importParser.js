@@ -117,6 +117,16 @@ const HEADER_ALIASES = {
   'etapa del funnel': 'etapa_funnel',
   'funnel':           'etapa_funnel',
 
+  'produccion':             'produccion',
+  'tipo de produccion':    'produccion',
+  'requiere':              'produccion',
+  'grabacion':             'produccion',
+  'filmar':                'produccion',
+  'edicion':               'produccion',
+  'edit':                  'produccion',
+  'filming':               'produccion',
+  'produccion requerida':  'produccion',
+
   'link al ad':     'link_ad',
   'link':           'link_ad',
 
@@ -517,6 +527,7 @@ export function construirPreview(filas, mapeo) {
       plataforma:   val(fila, 'plataforma'),
       objetivo:     val(fila, 'objetivo'),
       link_brief:   val(fila, 'link_brief'),
+      produccion:   val(fila, 'produccion'),
       _filaCSV:     fila._origIdx + 2,
     }
 
@@ -732,9 +743,11 @@ export async function ejecutarImport(preview, supabase, marcaDefault = 'mycocos'
           deseo:      brief.deseo      || null,
           hipotesis:  brief.descripcion || null,
           guion:      brief.guion      || null,
-          referencia:  brief.referencia || null,
-          link_brief:  brief.link_brief || null,
-          formato:     formatoLimpio,
+          referencia:       brief.referencia || null,
+          link_brief:       brief.link_brief || null,
+          requiere_grabacion: brief.requiere_grabacion || false,
+          requiere_edicion:   brief.requiere_edicion || false,
+          formato:          formatoLimpio,
           ...(brief.asignado_override ? { asignado_override: brief.asignado_override } : {}),
         }
         console.log(`🔴 [importParser] brief.asignado_override recibido:`, brief.asignado_override)

@@ -45,6 +45,10 @@ const TODOS_LOS_CAMPOS = [
   { value: 'hook3',       label: 'Hook 3' },
   { value: 'hook4',       label: 'Hook 4' },
   { value: 'estado_hook', label: 'Estado del hook' },
+  { value: 'produccion',  label: 'Producción (grabación/edición)' },
+  { value: 'link_brief',  label: 'Link al Brief' },
+  { value: 'objetivo',    label: 'Objetivo' },
+  { value: 'plataforma',  label: 'Plataforma' },
 ]
 
 // ── Indicador de pasos ───────────────────────────────────────────────────────
@@ -425,6 +429,21 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
   // Estado de asignación extraordinaria por batch
   const [overrides, setOverrides] = useState({})
 
+  // Estado de producción editable por brief: { "bi-ri": { grabacion: bool, edicion: bool } }
+  const [produccionState, setProduccionState] = useState(() => {
+    const initial = {}
+    batchesNuevos.forEach((batch, bi) => {
+      batch.briefs.forEach((brief, ri) => {
+        // Detectar automáticamente desde campo "produccion" del CSV
+        const prod = (brief.produccion || '').toLowerCase()
+        const grabacion = /grab|film|shoot|record/i.test(prod)
+        const edicion = /edic|edit|post/i.test(prod) || grabacion // si graba, también edita
+        initial[`${bi}-${ri}`] = { grabacion, edicion }
+      })
+    })
+    return initial
+  })
+
   // Estado de selección: Set de keys "batch-{bi}" y "brief-{bi}-{ri}"
   const [selected, setSelected] = useState(() => {
     const initial = new Set()
@@ -508,10 +527,16 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
           ...batch,
           briefs: batch.briefs
             .filter((_, ri) => selected.has(`brief-${bi}-${ri}`))
-            .map((brief) => ({
-              ...brief,
-              asignado_override: overrideGid,
-            })),
+            .map((brief, ri) => {
+              const prodKey = `${bi}-${batch.briefs.indexOf(brief)}`
+              const prod = produccionState[prodKey] || { grabacion: false, edicion: false }
+              return {
+                ...brief,
+                asignado_override: overrideGid,
+                requiere_grabacion: prod.grabacion,
+                requiere_edicion: prod.edicion,
+              }
+            }),
         }
       })
       .filter((batch) => batch.briefs.length > 0)
@@ -646,6 +671,14 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
               {/* Briefs del batch con checkbox */}
               {batch.briefs.map((brief, ri) => {
                 const isSelected = selected.has(`brief-${bi}-${ri}`)
+                const prodKey = `${bi}-${ri}`
+                const prod = produccionState[prodKey] || { grabacion: false, edicion: false }
+                const toggleProd = (field) => {
+                  setProduccionState((prev) => ({
+                    ...prev,
+                    [prodKey]: { ...prev[prodKey], [field]: !prev[prodKey]?.[field] },
+                  }))
+                }
                 return (
                   <div key={ri} style={{
                     padding: '0.6rem 1rem',
@@ -663,24 +696,55 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
                       #{ri + 1}
                     </span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text, #1A202C)' }}>{brief.concepto}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text, #1A202C)' }}>{brief.concepto}</span>
+                        {brief.link_brief && (
+                          <a href={brief.link_brief} target="_blank" rel="noopener noreferrer"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.7rem', color: '#3b82f6', textDecoration: 'none', fontWeight: 600 }}
+                            title={brief.link_brief}>
+                            🔗 Doc
+                          </a>
+                        )}
+                      </div>
                       {brief.angulo && (
                         <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary, #4A5568)', marginTop: '0.15rem' }}>
                           {brief.angulo}
                         </div>
                       )}
-                      {brief.hooks.length > 0 && (
-                        <div style={{ marginTop: '0.3rem', display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                          {brief.hooks.map((h, hi) => (
-                            <span key={hi} style={{
-                              background: 'rgba(11,29,58,0.06)', color: 'var(--color-primary, #0B1D3A)',
-                              padding: '0.1rem 0.5rem', borderRadius: 4, fontSize: '0.75rem', fontWeight: 500,
-                            }}>
-                              Hook {h.orden}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      {/* Hooks + Producción */}
+                      <div style={{ marginTop: '0.3rem', display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                        {brief.hooks.map((h, hi) => (
+                          <span key={hi} style={{
+                            background: 'rgba(11,29,58,0.06)', color: 'var(--color-primary, #0B1D3A)',
+                            padding: '0.1rem 0.5rem', borderRadius: 4, fontSize: '0.75rem', fontWeight: 500,
+                          }}>
+                            Hook {h.orden}
+                          </span>
+                        ))}
+                        {/* Producción toggles */}
+                        <button type="button" onClick={() => toggleProd('grabacion')}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '0.2rem',
+                            padding: '0.1rem 0.5rem', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600,
+                            border: '1px solid', cursor: 'pointer', fontFamily: 'inherit',
+                            background: prod.grabacion ? 'rgba(239,68,68,0.1)' : 'transparent',
+                            color: prod.grabacion ? '#ef4444' : '#a0aec0',
+                            borderColor: prod.grabacion ? 'rgba(239,68,68,0.3)' : '#e2e8f0',
+                          }}>
+                          🎬 Grabar
+                        </button>
+                        <button type="button" onClick={() => toggleProd('edicion')}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '0.2rem',
+                            padding: '0.1rem 0.5rem', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600,
+                            border: '1px solid', cursor: 'pointer', fontFamily: 'inherit',
+                            background: prod.edicion ? 'rgba(168,85,247,0.1)' : 'transparent',
+                            color: prod.edicion ? '#a855f7' : '#a0aec0',
+                            borderColor: prod.edicion ? 'rgba(168,85,247,0.3)' : '#e2e8f0',
+                          }}>
+                          ✂️ Editar
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )
