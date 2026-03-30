@@ -18,6 +18,22 @@ export default function DashboardLayout({
               Suppliers
             </a>
           </li>
+          <li>
+            <a
+              href="/products"
+              className="block px-3 py-2 rounded-md text-sm font-medium text-zinc-900 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
+            >
+              Fichas técnicas
+            </a>
+          </li>
+          <li>
+            <a
+              href="/findings"
+              className="block px-3 py-2 rounded-md text-sm font-medium text-zinc-900 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
+            >
+              Hallazgos de feria
+            </a>
+          </li>
         </ul>
       </nav>
       <main className="flex-1 p-6">{children}</main>
