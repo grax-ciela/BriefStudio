@@ -484,12 +484,25 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
 
   // Construir preview filtrado para importar (con override de asignación)
   const handleImportarSeleccionados = () => {
+    console.log('🔴 [OVERRIDE DEBUG] Estado overrides:', JSON.stringify(overrides))
+
     const filteredBatches = batchesNuevos
       .map((batch, bi) => {
         // Buscar GID del override para este batch
         const overrideValue = overrides[bi]
         const overrideObj = EQUIPO_OVERRIDE.find((m) => m.value === overrideValue)
         const overrideGid = (overrideObj?.gid && overrideObj.gid.trim() !== '') ? overrideObj.gid : null
+
+        console.log(`🔴 [OVERRIDE DEBUG] Batch #${bi} "${batch.nombre}":`, {
+          selectorValue: overrideValue || '(vacío)',
+          equipoMatch: overrideObj?.label || '(ninguno)',
+          gidRaw: overrideObj?.gid,
+          gidFinal: overrideGid,
+        })
+
+        if (overrideValue && !overrideGid) {
+          console.warn(`⚠️ [OVERRIDE] Seleccionaste a "${overrideObj?.label}" pero su GID está vacío. La asignación será automática.`)
+        }
 
         return {
           ...batch,
@@ -511,6 +524,11 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
         filteredHooks.push(...brief.hooks)
       })
     })
+
+    console.log('🔴 [OVERRIDE DEBUG] Briefs a importar:', filteredBriefs.map(b => ({
+      concepto: b.concepto,
+      asignado_override: b.asignado_override,
+    })))
 
     const filteredPreview = {
       ...preview,

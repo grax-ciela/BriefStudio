@@ -727,12 +727,13 @@ export async function ejecutarImport(preview, supabase, marcaDefault = 'mycocos'
           formato:    formatoLimpio,
           ...(brief.asignado_override ? { asignado_override: brief.asignado_override } : {}),
         }
-        console.log(`[importParser] 📦 INSERT brief #${numeroBase} payload:`, JSON.stringify(briefPayload))
+        console.log(`🔴 [importParser] brief.asignado_override recibido:`, brief.asignado_override)
+        console.log(`🔴 [importParser] 📦 INSERT brief #${numeroBase} payload:`, JSON.stringify(briefPayload))
 
         const { data, error } = await supabase
           .from('briefs')
           .insert(briefPayload)
-          .select('id')
+          .select('id, asignado_override')
           .single()
 
         if (error) {
@@ -740,7 +741,10 @@ export async function ejecutarImport(preview, supabase, marcaDefault = 'mycocos'
           console.error('[importParser] Código:', error.code, '| Status:', error.status || 'N/A', '| Detalles:', error.details)
           throw error
         }
-        console.log(`[importParser] ✅ Brief insertado: id=${data.id}, concepto="${briefPayload.concepto}"`)
+        console.log(`🔴 [importParser] ✅ Brief insertado: id=${data.id}, concepto="${briefPayload.concepto}", asignado_override en BD: "${data.asignado_override}"`)
+        if (brief.asignado_override && !data.asignado_override) {
+          console.error(`🔴🔴🔴 [importParser] ¡¡LA COLUMNA asignado_override NO SE GUARDÓ!! Enviaste "${brief.asignado_override}" pero la BD devolvió null. ¿Existe la columna en la tabla briefs?`)
+        }
 
 
         // ── 4. Insertar hook(s) vinculado(s) al brief ──
