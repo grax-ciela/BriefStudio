@@ -437,7 +437,7 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
         // Detectar automáticamente desde campo "produccion" del CSV
         const prod = (brief.produccion || '').toLowerCase()
         const grabacion = /grab|film|shoot|record/i.test(prod)
-        const edicion = /edic|edit|post/i.test(prod) || grabacion // si graba, también edita
+        const edicion = !grabacion && /edic|edit|post/i.test(prod)
         initial[`${bi}-${ri}`] = { grabacion, edicion }
       })
     })
@@ -505,9 +505,10 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
         .map((_, ri) => ({ ri, key: `${bi}-${ri}` }))
         .filter(({ ri }) => selected.has(`brief-${bi}-${ri}`))
       const allActive = selectedBriefs.every(({ key }) => next[key]?.[field])
-      // Si todos activos → desactivar todos. Si no → activar todos.
+      const other = field === 'grabacion' ? 'edicion' : 'grabacion'
+      // Si todos activos → desactivar todos. Si no → activar este y desactivar el opuesto.
       selectedBriefs.forEach(({ key }) => {
-        next[key] = { ...next[key], [field]: !allActive }
+        next[key] = { [field]: !allActive, [other]: false }
       })
       return next
     })
@@ -736,10 +737,11 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
                 const prodKey = `${bi}-${ri}`
                 const prod = produccionState[prodKey] || { grabacion: false, edicion: false }
                 const toggleProd = (field) => {
-                  setProduccionState((prev) => ({
-                    ...prev,
-                    [prodKey]: { ...prev[prodKey], [field]: !prev[prodKey]?.[field] },
-                  }))
+                  setProduccionState((prev) => {
+                    const current = prev[prodKey]?.[field]
+                    const other = field === 'grabacion' ? 'edicion' : 'grabacion'
+                    return { ...prev, [prodKey]: { [field]: !current, [other]: false } }
+                  })
                 }
                 return (
                   <div key={ri} style={{
