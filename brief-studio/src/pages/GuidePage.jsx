@@ -40,10 +40,16 @@ export default function GuidePage() {
             <Step n="3" title="Revisa antes de importar">
               Verifica que los campos estén bien mapeados. Puedes desmarcar filas que no quieras importar. Si hay errores de formato, se muestran advertencias en naranja.
             </Step>
-            <Step n="4" title="Asignación manual (opcional)">
-              Si un batch necesita ir a una persona específica (en lugar del asignado automático), usa el selector <strong>"Asignación manual"</strong> en el encabezado del batch antes de importar.
+            <Step n="4" title="Define la producción (obligatorio)">
+              Cada brief debe tener marcado <strong>🎬 Grabar</strong> o <strong>✂️ Editar</strong> — son excluyentes, solo uno a la vez. Usa los botones <strong>"Grabar todos"</strong> o <strong>"Editar todos"</strong> en la cabecera del batch para marcar en bloque. El botón de importar se bloquea si algún brief no tiene producción definida.
             </Step>
-            <Step n="5" title="Importar y enviar a Asana">
+            <Step n="5" title="Asignación manual (opcional)">
+              Si un batch necesita ir a una persona específica (en lugar del asignado automático), usa el selector <strong>"Asignación manual"</strong> en el encabezado del batch. Esta selección tiene prioridad absoluta sobre las reglas automáticas del sistema.
+            </Step>
+            <Step n="6" title="Link al Brief">
+              Si tu Google Sheet tiene una columna <strong>"Link al Brief"</strong>, la URL se importa automáticamente y aparece como botón azul <strong>"Doc"</strong> junto a cada brief. Este link también se incluye al inicio de la tarea en Asana.
+            </Step>
+            <Step n="7" title="Importar y enviar a Asana">
               Haz clic en <strong>"Importar seleccionados"</strong>. Los briefs aparecerán en el dashboard. Desde ahí, usa el botón verde <strong>"Enviar todo a Asana"</strong> en cada batch para crear todas las tareas de una vez.
             </Step>
           </div>
@@ -88,6 +94,39 @@ export default function GuidePage() {
           </div>
         </section>
 
+        <div style={{ borderTop: '1px solid var(--color-border)' }} />
+
+        {/* ── Glosario ── */}
+        <section>
+          <h2 style={{ ...styles.flowTitle, marginBottom: '1.25rem' }}>Glosario de Brief Studio</h2>
+          <dl style={styles.glossary}>
+            <GlossaryItem
+              term="Batch"
+              desc="El contenedor maestro. Agrupa un conjunto de briefs por marca, campaña o fecha de lanzamiento para enviarlos en bloque a Asana."
+            />
+            <GlossaryItem
+              term="Brief"
+              desc="La unidad mínima de trabajo. Contiene la hipótesis, el ángulo creativo y los ganchos (hooks) de un video o anuncio."
+            />
+            <GlossaryItem
+              term="Hook (Gancho)"
+              desc="Las variaciones de los primeros segundos del video destinados a captar la atención. Cada hook genera un brief independiente al importar."
+            />
+            <GlossaryItem
+              term="Override (Asignación Manual)"
+              desc="El poder de elegir a un responsable a mano, ignorando las reglas automáticas del sistema. Tiene prioridad absoluta sobre la asignación automática."
+            />
+            <GlossaryItem
+              term="Link al Brief"
+              desc="El acceso directo al documento original (Google Doc) que viaja automáticamente hasta la tarea final en Asana."
+            />
+            <GlossaryItem
+              term="Estatus de Producción"
+              desc="Las etiquetas 🎬 Grabar y ✂️ Editar que definen el flujo técnico necesario para completar el contenido. Son excluyentes: cada brief es de grabación o de edición, nunca ambos."
+            />
+          </dl>
+        </section>
+
         {/* ── Soporte ── */}
         <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', textAlign: 'center', paddingBottom: '0.5rem' }}>
           Cualquier ayuda o sugerencia, por favor contactar a Grax.
@@ -106,6 +145,15 @@ function Step({ n, title, children }) {
         <p style={styles.stepTitle}>{title}</p>
         <p style={styles.stepBody}>{children}</p>
       </div>
+    </div>
+  )
+}
+
+function GlossaryItem({ term, desc }) {
+  return (
+    <div style={styles.glossaryItem}>
+      <dt style={styles.glossaryTerm}>{term}</dt>
+      <dd style={styles.glossaryDesc}>{desc}</dd>
     </div>
   )
 }
@@ -187,6 +235,28 @@ const styles = {
     fontSize: '0.8125rem',
     color: 'var(--color-text-muted)',
     lineHeight: 1.6,
+  },
+  glossary: {
+    display: 'grid',
+    gap: '0',
+    margin: 0,
+    padding: 0,
+  },
+  glossaryItem: {
+    padding: '0.875rem 1.25rem',
+    borderBottom: '1px solid var(--color-border)',
+  },
+  glossaryTerm: {
+    fontSize: '0.875rem',
+    fontWeight: 700,
+    color: 'var(--color-text)',
+    marginBottom: '0.25rem',
+  },
+  glossaryDesc: {
+    fontSize: '0.8125rem',
+    color: 'var(--color-text-muted)',
+    lineHeight: 1.6,
+    margin: 0,
   },
   templateLink: {
     display: 'inline-flex',
