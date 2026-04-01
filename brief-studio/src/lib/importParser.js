@@ -303,16 +303,28 @@ function parsearUrlGoogleSheet(url) {
  * Valida que la respuesta sea CSV real (no HTML de login de Google).
  */
 async function fetchConFallbackCORS(url) {
+  const TIMEOUT_MS = 8000 // 8 segundos por intento
+
+  function fetchConTimeout(fetchUrl, opts = {}) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+    return fetch(fetchUrl, { ...opts, signal: controller.signal })
+      .finally(() => clearTimeout(timer))
+  }
+
   // Intentar directo primero
   try {
-    const r = await fetch(url, { redirect: 'follow' })
+    const r = await fetchConTimeout(url, { redirect: 'follow' })
     if (r.ok) {
       const text = await r.text()
       if (esCSVValido(text)) return text
       console.warn('[importParser] Respuesta no es CSV válido (directo):', url)
+    } else {
+      console.warn(`[importParser] Fetch directo falló: HTTP ${r.status} (${r.statusText})`)
     }
   } catch (e) {
-    console.warn('[importParser] Fetch directo falló:', e.message)
+    const msg = e.name === 'AbortError' ? 'Timeout (8s)' : e.message
+    console.warn('[importParser] Fetch directo falló:', msg)
   }
 
   // Intentar cada proxy CORS
@@ -320,14 +332,17 @@ async function fetchConFallbackCORS(url) {
     const proxyUrl = proxyFn(url)
     try {
       console.log('[importParser] Intentando proxy CORS:', proxyUrl.slice(0, 60) + '...')
-      const r = await fetch(proxyUrl)
+      const r = await fetchConTimeout(proxyUrl)
       if (r.ok) {
         const text = await r.text()
         if (esCSVValido(text)) return text
         console.warn('[importParser] Proxy devolvió HTML en vez de CSV')
+      } else {
+        console.warn(`[importParser] Proxy falló: HTTP ${r.status}`)
       }
     } catch (e) {
-      console.warn('[importParser] Proxy falló:', e.message)
+      const msg = e.name === 'AbortError' ? 'Timeout (8s)' : e.message
+      console.warn('[importParser] Proxy falló:', msg)
     }
   }
 
@@ -363,12 +378,18 @@ async function fetchGoogleSheet(url) {
     }
   }
 
+  const esPubWeb = parsed.tipo === 'pub_web'
   throw new Error(
     'No se pudo acceder al Google Sheet.\n\n' +
-    'Opciones para solucionarlo:\n' +
-    '1. Archivo → Compartir → Publicar en la web → Seleccionar pestaña → CSV → Publicar\n' +
-    '2. Usar la URL que empieza con https://docs.google.com/spreadsheets/d/e/2PACX-.../pub\n' +
-    '3. Asegúrate de que el enlace esté compartido como "Cualquiera con el enlace"'
+    (esPubWeb
+      ? 'La URL de "Publicar en la web" no respondió. Verifica que el enlace siga activo.\n\n'
+      : 'El Sheet no está publicado en la web o no es accesible.\n\n') +
+    'Pasos para solucionarlo:\n' +
+    '1. Abre el Sheet en Google Sheets\n' +
+    '2. Archivo → Compartir → Publicar en la web\n' +
+    '3. Selecciona la pestaña correcta → Formato: CSV → Publicar\n' +
+    '4. Copia la URL generada (empieza con https://docs.google.com/spreadsheets/d/e/2PACX-...)\n' +
+    '5. Pega esa URL aquí'
   )
 }
 

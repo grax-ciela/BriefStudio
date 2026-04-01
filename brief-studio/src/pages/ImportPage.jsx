@@ -245,11 +245,25 @@ export default function ImportPage() {
         </div>
       )}
 
+      {/* Indicador de progreso durante carga */}
+      {estado.fase === 'cargando' && (
+        <div style={{
+          background: 'var(--color-bg, #f0f4f8)', color: 'var(--color-text-secondary, #4A5568)',
+          padding: '0.75rem 1rem', borderRadius: 6,
+          fontSize: '0.875rem', marginBottom: '1rem',
+          display: 'flex', alignItems: 'center', gap: '0.5rem',
+        }}>
+          <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite', fontSize: '1rem' }}>&#9696;</span>
+          Conectando con Google Sheets... Esto puede tomar unos segundos.
+        </div>
+      )}
+
       {error && (
         <div style={{
           background: '#fee2e2', color: '#991b1b',
           padding: '0.75rem 1rem', borderRadius: 6,
           fontSize: '0.875rem', marginBottom: '1rem',
+          whiteSpace: 'pre-line',
         }}>
           {error}
         </div>
