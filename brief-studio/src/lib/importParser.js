@@ -126,6 +126,9 @@ const HEADER_ALIASES = {
   'edit':                  'produccion',
   'filming':               'produccion',
   'produccion requerida':  'produccion',
+  'diseno':                'produccion',
+  'disenar':               'produccion',
+  'design':                'produccion',
 
   'link al ad':     'link_ad',
   'link':           'link_ad',
@@ -767,7 +770,8 @@ export async function ejecutarImport(preview, supabase, marcaDefault = 'mycocos'
           referencia:       brief.referencia || null,
           link_brief:       brief.link_brief || null,
           requiere_grabacion: brief.requiere_grabacion || false,
-          requiere_edicion:   brief.requiere_edicion || false,
+          requiere_edicion:   brief.requiere_edicion   || false,
+          requiere_diseno:    brief.requiere_diseno    || false,
           formato:          formatoLimpio,
           ...(brief.asignado_override ? { asignado_override: brief.asignado_override } : {}),
         }

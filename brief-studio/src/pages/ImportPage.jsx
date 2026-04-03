@@ -444,16 +444,17 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
   // Estado de asignación extraordinaria por batch
   const [overrides, setOverrides] = useState({})
 
-  // Estado de producción editable por brief: { "bi-ri": { grabacion: bool, edicion: bool } }
+  // Estado de producción editable por brief: { "bi-ri": { grabacion: bool, edicion: bool, diseno: bool } }
   const [produccionState, setProduccionState] = useState(() => {
     const initial = {}
     batchesNuevos.forEach((batch, bi) => {
       batch.briefs.forEach((brief, ri) => {
-        // Detectar automáticamente desde campo "produccion" del CSV
+        // Detectar automáticamente desde campo "produccion" del CSV (excluyentes)
         const prod = (brief.produccion || '').toLowerCase()
         const grabacion = /grab|film|shoot|record/i.test(prod)
         const edicion = !grabacion && /edic|edit|post/i.test(prod)
-        initial[`${bi}-${ri}`] = { grabacion, edicion }
+        const diseno = !grabacion && !edicion && /dise[ñn]|design|stat|graph/i.test(prod)
+        initial[`${bi}-${ri}`] = { grabacion, edicion, diseno }
       })
     })
     return initial
@@ -511,19 +512,17 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
     })
   }
 
-  // Toggle masivo de producción por batch
+  // Toggle masivo de producción por batch (los 3 tipos son excluyentes)
   const toggleBatchProd = (bi, batch, field) => {
     setProduccionState((prev) => {
       const next = { ...prev }
-      // Verificar si todos los briefs seleccionados del batch ya tienen este campo activo
       const selectedBriefs = batch.briefs
         .map((_, ri) => ({ ri, key: `${bi}-${ri}` }))
         .filter(({ ri }) => selected.has(`brief-${bi}-${ri}`))
       const allActive = selectedBriefs.every(({ key }) => next[key]?.[field])
-      const other = field === 'grabacion' ? 'edicion' : 'grabacion'
-      // Si todos activos → desactivar todos. Si no → activar este y desactivar el opuesto.
+      // Si todos activos → desactivar. Si no → activar este y desactivar los otros dos.
       selectedBriefs.forEach(({ key }) => {
-        next[key] = { [field]: !allActive, [other]: false }
+        next[key] = { grabacion: false, edicion: false, diseno: false, [field]: !allActive }
       })
       return next
     })
@@ -534,14 +533,14 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
     acc + batch.briefs.filter((_, ri) => selected.has(`brief-${bi}-${ri}`)).length, 0
   )
 
-  // Validación: cada brief seleccionado debe tener al menos grabación o edición marcada
+  // Validación: cada brief seleccionado debe tener al menos un tipo de producción marcado
   const briefsSinProduccion = []
   const briefsSinLink = []
   batchesNuevos.forEach((batch, bi) => {
     batch.briefs.forEach((brief, ri) => {
       if (!selected.has(`brief-${bi}-${ri}`)) return
-      const prod = produccionState[`${bi}-${ri}`] || { grabacion: false, edicion: false }
-      if (!prod.grabacion && !prod.edicion) {
+      const prod = produccionState[`${bi}-${ri}`] || { grabacion: false, edicion: false, diseno: false }
+      if (!prod.grabacion && !prod.edicion && !prod.diseno) {
         briefsSinProduccion.push({ batch: batch.nombre, concepto: brief.concepto, bi, ri })
       }
       if (!brief.link_brief) {
@@ -579,12 +578,13 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
             .filter((_, ri) => selected.has(`brief-${bi}-${ri}`))
             .map((brief, ri) => {
               const prodKey = `${bi}-${batch.briefs.indexOf(brief)}`
-              const prod = produccionState[prodKey] || { grabacion: false, edicion: false }
+              const prod = produccionState[prodKey] || { grabacion: false, edicion: false, diseno: false }
               return {
                 ...brief,
                 asignado_override: overrideGid,
                 requiere_grabacion: prod.grabacion,
                 requiere_edicion: prod.edicion,
+                requiere_diseno: prod.diseno,
               }
             }),
         }
@@ -745,17 +745,26 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
                   }}>
                   ✂️ Editar todos
                 </button>
+                <button type="button" onClick={() => toggleBatchProd(bi, batch, 'diseno')}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '0.2rem',
+                    padding: '0.15rem 0.5rem', borderRadius: 4, fontSize: '0.68rem', fontWeight: 600,
+                    border: '1px solid rgba(14,165,233,0.3)', cursor: 'pointer', fontFamily: 'inherit',
+                    background: 'rgba(14,165,233,0.06)', color: '#0ea5e9',
+                  }}>
+                  🎨 Diseñar todos
+                </button>
               </div>
               {/* Briefs del batch con checkbox */}
               {batch.briefs.map((brief, ri) => {
                 const isSelected = selected.has(`brief-${bi}-${ri}`)
                 const prodKey = `${bi}-${ri}`
-                const prod = produccionState[prodKey] || { grabacion: false, edicion: false }
+                const prod = produccionState[prodKey] || { grabacion: false, edicion: false, diseno: false }
                 const toggleProd = (field) => {
                   setProduccionState((prev) => {
                     const current = prev[prodKey]?.[field]
-                    const other = field === 'grabacion' ? 'edicion' : 'grabacion'
-                    return { ...prev, [prodKey]: { [field]: !current, [other]: false } }
+                    // Los 3 tipos son excluyentes: activar uno desactiva los otros
+                    return { ...prev, [prodKey]: { grabacion: false, edicion: false, diseno: false, [field]: !current } }
                   })
                 }
                 return (
@@ -806,7 +815,7 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
                           </span>
                         ))}
                         {/* Alerta si no tiene producción marcada */}
-                        {isSelected && !prod.grabacion && !prod.edicion && (
+                        {isSelected && !prod.grabacion && !prod.edicion && !prod.diseno && (
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: '0.2rem',
                             fontSize: '0.68rem', color: '#dc2626', fontWeight: 600,
@@ -814,7 +823,7 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
                             ⛔ Producción
                           </span>
                         )}
-                        {/* Producción toggles */}
+                        {/* Producción toggles (excluyentes) */}
                         <button type="button" onClick={() => toggleProd('grabacion')}
                           style={{
                             display: 'inline-flex', alignItems: 'center', gap: '0.2rem',
@@ -836,6 +845,17 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
                             borderColor: prod.edicion ? 'rgba(168,85,247,0.3)' : '#e2e8f0',
                           }}>
                           ✂️ Editar
+                        </button>
+                        <button type="button" onClick={() => toggleProd('diseno')}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '0.2rem',
+                            padding: '0.1rem 0.5rem', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600,
+                            border: '1px solid', cursor: 'pointer', fontFamily: 'inherit',
+                            background: prod.diseno ? 'rgba(14,165,233,0.1)' : 'transparent',
+                            color: prod.diseno ? '#0ea5e9' : '#a0aec0',
+                            borderColor: prod.diseno ? 'rgba(14,165,233,0.3)' : '#e2e8f0',
+                          }}>
+                          🎨 Diseñar
                         </button>
                       </div>
                     </div>
