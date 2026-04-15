@@ -73,26 +73,24 @@ const EQUIPO = [
   { value: 'fauadz',    label: 'Fauadz' },
 ]
 
-// ── Barra de carga por persona ────────────────────────────────────
-function EquipoBar({ label, total, enviados, max }) {
-  const pctTotal    = max > 0 ? Math.round((total / max) * 100) : 0
-  const pctEnviados = total > 0 ? Math.round((enviados / total) * 100) : 0
-  const pendientes  = total - enviados
+// ── Barra de carga por persona (datos desde Asana) ───────────────
+function EquipoBar({ nombre, activas, completadas, max }) {
+  const total   = activas + completadas
+  const pctBar  = max > 0 ? Math.round((activas / max) * 100) : 0
+  const pctComp = total > 0 ? Math.round((completadas / total) * 100) : 0
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
-        <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text)' }}>{label}</span>
+        <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text)' }}>{nombre}</span>
         <div style={{ display: 'flex', gap: '0.625rem', alignItems: 'center' }}>
-          {enviados > 0 && (
+          {completadas > 0 && (
             <span style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 600 }}>
-              ✓ {enviados} en Asana
+              ✓ {completadas} completada{completadas !== 1 ? 's' : ''}
             </span>
           )}
-          {pendientes > 0 && (
-            <span style={{ fontSize: '0.72rem', color: '#b45309', fontWeight: 600 }}>
-              {pendientes} pendiente{pendientes !== 1 ? 's' : ''}
-            </span>
-          )}
+          <span style={{ fontSize: '0.72rem', color: '#b45309', fontWeight: 600 }}>
+            {activas} activa{activas !== 1 ? 's' : ''}
+          </span>
           <span style={{
             fontSize: '0.8rem', fontWeight: 800, color: 'var(--color-text)',
             background: 'var(--color-bg)', border: '1px solid var(--color-border)',
@@ -102,10 +100,10 @@ function EquipoBar({ label, total, enviados, max }) {
           </span>
         </div>
       </div>
-      {/* Barra compuesta: verde (enviados) + azul oscuro (pendientes) */}
+      {/* Barra: ancho = activas relativo al max. Verde oscuro = completadas dentro */}
       <div style={{ height: 8, background: 'var(--color-border)', borderRadius: 99, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${pctTotal}%`, background: 'var(--color-primary)', borderRadius: 99, display: 'flex', overflow: 'hidden' }}>
-          <div style={{ width: `${pctEnviados}%`, background: '#4ade80', height: '100%' }} />
+        <div style={{ height: '100%', width: `${pctBar}%`, background: 'var(--color-primary)', borderRadius: 99, display: 'flex', overflow: 'hidden', minWidth: pctBar > 0 ? 4 : 0 }}>
+          <div style={{ width: `${pctComp}%`, background: '#4ade80', height: '100%' }} />
         </div>
       </div>
     </div>
@@ -134,16 +132,19 @@ function MarcaBar({ label, count, total, color }) {
 
 // ── Página principal ──────────────────────────────────────────────
 export default function DashboardPage() {
-  const [briefs, setBriefs] = useState([])
-  const [batches, setBatches] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [briefs, setBriefs]         = useState([])
+  const [batches, setBatches]       = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [cargaAsana, setCargaAsana] = useState([])
+  const [cargaLoading, setCargaLoading] = useState(true)
+  const [cargaError, setCargaError] = useState(null)
 
   useEffect(() => {
     const cargar = async () => {
       const [briefRes, batchRes] = await Promise.all([
         supabase
           .from('briefs')
-          .select('id, marca, enviado_asana, requiere_grabacion, requiere_edicion, created_at, concepto, batch_id, descartado, asignado_override'),
+          .select('id, marca, enviado_asana, requiere_grabacion, requiere_edicion, created_at, concepto, batch_id, descartado'),
         supabase
           .from('batches')
           .select('id, marca, nombre, fecha')
@@ -154,6 +155,21 @@ export default function DashboardPage() {
       setLoading(false)
     }
     cargar()
+  }, [])
+
+  useEffect(() => {
+    const cargarCarga = async () => {
+      setCargaLoading(true)
+      setCargaError(null)
+      const { data, error } = await supabase.functions.invoke('carga-equipo')
+      if (error || !data?.ok) {
+        setCargaError(error?.message || data?.error || 'Error al consultar Asana')
+      } else {
+        setCargaAsana(data.carga || [])
+      }
+      setCargaLoading(false)
+    }
+    cargarCarga()
   }, [])
 
   if (loading) return <div className="loading">Cargando dashboard...</div>
@@ -175,17 +191,6 @@ export default function DashboardPage() {
       b.marca?.toLowerCase().includes(m.value.replace('_cl', '').replace('_mx', '').replace('_col', ''))
     ).length,
   })).filter((m) => m.count > 0)
-
-  // ── Carga del equipo ──
-  const cargaEquipo = EQUIPO.map((persona) => ({
-    ...persona,
-    total:    activos.filter((b) => b.asignado_override === persona.value).length,
-    enviados: activos.filter((b) => b.asignado_override === persona.value && b.enviado_asana).length,
-  })).filter((p) => p.total > 0).sort((a, b) => b.total - a.total)
-
-  const maxCarga     = cargaEquipo[0]?.total || 1
-  const totalAsignados = cargaEquipo.reduce((s, p) => s + p.total, 0)
-  const sinAsignar   = activos.filter((b) => !b.asignado_override).length
 
   // ── Actividad reciente ──
   const recientes = [...activos]
@@ -298,53 +303,52 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Carga del equipo ── */}
+      {/* ── Carga del equipo (desde Asana) ── */}
       <div className="section-block" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
           <Users size={16} color="var(--color-text-muted)" />
           <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text)' }}>
             Carga del equipo
           </span>
-          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'auto' }}>
-            {totalAsignados} con asignación explícita · {sinAsignar} asignación automática
+          <span style={{
+            fontSize: '0.68rem', fontWeight: 600, padding: '0.1rem 0.45rem',
+            borderRadius: 99, background: 'rgba(16,185,129,0.12)', color: '#059669',
+            marginLeft: '0.25rem',
+          }}>
+            Live · Asana
           </span>
+          {!cargaLoading && !cargaError && cargaAsana.length > 0 && (
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'auto' }}>
+              {cargaAsana.reduce((s, p) => s + p.activas, 0)} tareas activas ·{' '}
+              {cargaAsana.reduce((s, p) => s + p.completadas, 0)} completadas
+            </span>
+          )}
         </div>
 
-        {cargaEquipo.length === 0 ? (
+        {cargaLoading ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>
+            <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⟳</span>
+            Consultando Asana…
+          </div>
+        ) : cargaError ? (
+          <p style={{ fontSize: '0.8125rem', color: '#991b1b', background: '#fee2e2', padding: '0.625rem 0.875rem', borderRadius: 8 }}>
+            ⚠️ {cargaError}
+          </p>
+        ) : cargaAsana.length === 0 ? (
           <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-            Aún no hay briefs con asignación explícita. Usa el campo "Asignar a" al crear o editar un brief.
+            No hay tareas asignadas en Asana creadas desde esta app.
           </p>
         ) : (
           <div style={{ display: 'grid', gap: '0.875rem' }}>
-            {cargaEquipo.map((persona) => (
+            {cargaAsana.map((persona) => (
               <EquipoBar
-                key={persona.value}
-                label={persona.label}
-                total={persona.total}
-                enviados={persona.enviados}
-                max={maxCarga}
+                key={persona.gid}
+                nombre={persona.nombre}
+                activas={persona.activas}
+                completadas={persona.completadas}
+                max={cargaAsana[0].activas || 1}
               />
             ))}
-          </div>
-        )}
-
-        {sinAsignar > 0 && (
-          <div style={{
-            marginTop: '1rem',
-            padding: '0.5rem 0.875rem',
-            borderRadius: 8,
-            background: 'var(--color-bg)',
-            border: '1px solid var(--color-border)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-              Asignación automática por marca
-            </span>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-muted)' }}>
-              {sinAsignar} brief{sinAsignar !== 1 ? 's' : ''}
-            </span>
           </div>
         )}
       </div>
