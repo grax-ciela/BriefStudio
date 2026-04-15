@@ -86,12 +86,15 @@ export default function ImportPage() {
   const [error, setError]         = useState(null)
   const [importando, setImportando] = useState(false)
   const [resultado, setResultado] = useState(null)
-  const [marcaSeleccionada, setMarcaSeleccionada] = useState('')
+  const [marcasSeleccionadas, setMarcasSeleccionadas] = useState([])
 
-  const marcaObj = MARCAS_ASANA.find(m => m.value === marcaSeleccionada)
-  const marcaLabel = marcaObj?.label || ''
-  const marcaGid = marcaObj?.gid || null
-  const hayMarcaSeleccionada = !!marcaSeleccionada
+  const hayMarcaSeleccionada = marcasSeleccionadas.length > 0
+
+  const toggleMarcaImport = (value) => {
+    setMarcasSeleccionadas((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+    )
+  }
 
   // ── Paso 1: Cargar CSV y sugerir mapeo ──────────────────────────────────────
   async function handleCargar() {
@@ -141,13 +144,10 @@ export default function ImportPage() {
     setError(null)
     try {
       const previewToImport = filteredPreview || estado.preview
-      // Usa la marca seleccionada como default (value = slug para Supabase)
-      const marcaDefault = marcaSeleccionada || MARCA_ACTIVA
-      console.log('[ImportPage] 🚀 Iniciando import con marca:', marcaDefault, '| Marca label:', marcaLabel)
+      // Usa las marcas seleccionadas como default (serializadas para Supabase)
+      const marcaDefault = serializeMarcas(marcasSeleccionadas)
+      console.log('[ImportPage] 🚀 Iniciando import con marcas:', marcaDefault)
       const res = await ejecutarImport(previewToImport, supabase, marcaDefault)
-      // Guardar el GID de marca de Asana en el resultado para uso posterior
-      res.asana_brand_gid = marcaGid
-      res.asana_brand_label = marcaLabel
       console.log('[ImportPage] 📊 Resultado:', res.creados.length, 'creados,', res.fallidos.length, 'fallidos')
 
       // NO avanzar a "listo" si no se creó ningún brief
@@ -195,24 +195,38 @@ export default function ImportPage() {
           <label style={{
             display: 'block', fontSize: '0.8125rem', fontWeight: 600,
             color: 'var(--color-text-secondary, #4A5568)',
-            marginBottom: '0.375rem',
+            marginBottom: '0.5rem',
           }}>
             Marca *
           </label>
-          <select
-            value={marcaSeleccionada}
-            onChange={(e) => setMarcaSeleccionada(e.target.value)}
-            disabled={estado.fase === 'mapeando'}
-            className="select"
-            style={{ maxWidth: 320 }}
-          >
-            {MARCAS_ASANA.map((m) => (
-              <option key={m.value} value={m.value}>{m.label}</option>
-            ))}
-          </select>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {TODAS_LAS_MARCAS.map((m) => {
+              const sel = marcasSeleccionadas.includes(m.value)
+              const bloqueado = estado.fase === 'mapeando'
+              return (
+                <button
+                  key={m.value}
+                  type="button"
+                  disabled={bloqueado}
+                  onClick={() => !bloqueado && toggleMarcaImport(m.value)}
+                  style={{
+                    fontSize: '0.8rem', fontWeight: 700, padding: '0.3rem 0.75rem',
+                    borderRadius: 99, cursor: bloqueado ? 'default' : 'pointer',
+                    border: sel ? `2px solid ${m.color}` : '2px solid var(--color-border)',
+                    background: sel ? `${m.color}18` : 'transparent',
+                    color: sel ? m.color : 'var(--color-text-muted)',
+                    opacity: bloqueado ? 0.5 : 1,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {sel && '✓ '}{m.label}
+                </button>
+              )
+            })}
+          </div>
           {!hayMarcaSeleccionada && (
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted, #A0AEC0)', marginTop: '0.25rem' }}>
-              Selecciona una marca para habilitar la importación
+            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted, #A0AEC0)', marginTop: '0.375rem' }}>
+              Selecciona al menos una marca para habilitar la importación
             </p>
           )}
         </div>
