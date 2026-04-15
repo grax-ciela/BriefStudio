@@ -137,12 +137,16 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Faltan campos: concepto, marca" }), { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } })
     }
 
-    const marcaNorm = norm(marca)
+    // Soporte multi-marca: 'mycocos_cl,mennt_cl' → ['mycocos_cl', 'mennt_cl']
+    const marcaList = marca.split(',').map((s: string) => s.trim()).filter(Boolean)
+    const marcaPrimaria = marcaList[0] || marca
+    const marcaNorm = norm(marcaPrimaria)
     const formatoNorm = norm(formato || "video")
     const assignee = assigneeOverride || determinarAssignee(marcaNorm, formatoNorm, produccion || "")
 
-    // Título: [BATCH] - [CONCEPTO] - [marca]
-    const titulo = `[${batch || "—"}] - ${concepto} - ${marca}`
+    // Título: [BATCH] - [CONCEPTO] - [marca(s)]
+    const marcaLabel = marcaList.length > 1 ? marcaList.join(' + ') : marca
+    const titulo = `[${batch || "—"}] - ${concepto} - ${marcaLabel}`
 
     // Descripción: link al brief primero, luego hipótesis, luego detalles
     const descParts: string[] = []
@@ -174,8 +178,9 @@ Deno.serve(async (req) => {
     customFields[CF.FUNNEL] = FUNNEL_DEFAULT
     customFields[CF.PRIORIDAD] = PRIORIDAD_DEFAULT
 
-    const mGid = findOpt(MARCA_OPTS, marca)
-    if (mGid) customFields[CF.MARCA] = [mGid]
+    // Multi-marca: buscar GID para cada una y enviar array a Asana
+    const mGids = marcaList.map((m: string) => findOpt(MARCA_OPTS, m)).filter(Boolean)
+    if (mGids.length > 0) customFields[CF.MARCA] = mGids
 
     if (typeof hooksCount === "number") customFields[CF.HOOKS] = hooksCount
 

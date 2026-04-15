@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
-// MARCA_ACTIVA eliminado — ahora se muestran todas las marcas
-
-const MARCAS = ['MyCOCOS® CL', 'MyHUEVOS® MX', 'MyHUEVOS® COL', 'MENNT® CL']
+import { TODAS_LAS_MARCAS, parseMarcas, getMarcaLabel, getMarcaColor } from '../lib/config'
 
 function formatFecha(fechaStr) {
   if (!fechaStr) return '—'
@@ -114,9 +112,11 @@ export default function BatchListPage() {
     setEliminandoMasivo(false)
   }
 
-  const batchesPorMarca = MARCAS.map((marca) => ({
-    marca,
-    items: batches.filter((b) => b.marca === marca),
+  // Un batch puede pertenecer a varias marcas → aparece en cada grupo correspondiente
+  const batchesPorMarca = TODAS_LAS_MARCAS.map((m) => ({
+    marca: m.label,
+    color: m.color,
+    items: batches.filter((b) => parseMarcas(b.marca).includes(m.value)),
   })).filter((g) => g.items.length > 0)
 
   const hayBatches = batches.length > 0
@@ -281,6 +281,23 @@ export default function BatchListPage() {
                             </span>
                           </div>
                         </div>
+
+                        {/* Chips multi-marca (solo si tiene más de 1 marca) */}
+                        {parseMarcas(batch.marca).length > 1 && (
+                          <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                            {parseMarcas(batch.marca).map((v) => (
+                              <span key={v} style={{
+                                fontSize: '0.7rem', fontWeight: 700,
+                                padding: '0.15rem 0.5rem', borderRadius: 99,
+                                background: `${getMarcaColor(v)}14`,
+                                color: getMarcaColor(v),
+                                border: `1px solid ${getMarcaColor(v)}40`,
+                              }}>
+                                {getMarcaLabel(v)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
 
                         {/* Formatos */}
                         {batch.formatos?.length > 0 && (

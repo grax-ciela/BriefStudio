@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom"
 import { supabase } from "../lib/supabaseClient"
-import { MARCA_ACTIVA, TODAS_LAS_MARCAS } from "../lib/config"
-
-const MARCAS = TODAS_LAS_MARCAS.map((m) => m.value)
+import { MARCA_ACTIVA, TODAS_LAS_MARCAS, parseMarcas, serializeMarcas, getMarcaColor } from "../lib/config"
 
 const HOOKS_INICIALES = [
   { texto: "", estado: "shooting" },
@@ -67,19 +65,30 @@ export default function BriefFormPage() {
     cargarBatchInicial()
   }, [batchIdParam, esEdicion])
 
+  const toggleMarca = (value) => {
+    const current = parseMarcas(marca)
+    const next = current.includes(value)
+      ? current.filter((v) => v !== value)
+      : [...current, value]
+    setMarca(serializeMarcas(next))
+  }
+
   // ── Cargar batches cuando cambia la marca ──
   useEffect(() => {
     const cargarBatches = async () => {
       setCargandoBatches(true)
-      const { data, error } = await supabase
-        .from("batches")
-        .select("*")
-        .eq("marca", marca)
-        .order("fecha", { ascending: false })
 
+      // Multi-marca: mostrar batches que contienen cualquiera de las marcas seleccionadas
+      const marcas = parseMarcas(marca)
+      let query = supabase.from("batches").select("*").order("fecha", { ascending: false })
+      if (marcas.length > 0) {
+        // .or() genera: marca.ilike.%mycocos_cl%,marca.ilike.%mennt_cl%
+        query = query.or(marcas.map((m) => `marca.ilike.%${m}%`).join(','))
+      }
+
+      const { data, error } = await query
       if (!error) {
         setBatches(data || [])
-        // Si venimos de un batch específico, mantenerlo seleccionado
         if (!esEdicion && !batchIdParam) setBatchId("")
       }
       setCargandoBatches(false)
@@ -309,17 +318,36 @@ export default function BriefFormPage() {
           </div>
 
           <div className="field-group">
-            {/* Marca */}
+            {/* Marca(s) */}
             <div className="field">
-              <label className="field-label" htmlFor="marca">Marca</label>
-              <select
-                id="marca"
-                className="select"
-                value={marca}
-                onChange={(e) => setMarca(e.target.value)}
-              >
-                {MARCAS.map((m) => <option key={m}>{m}</option>)}
-              </select>
+              <label className="field-label">Marca(s)</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
+                {TODAS_LAS_MARCAS.map((m) => {
+                  const checked = parseMarcas(marca).includes(m.value)
+                  return (
+                    <label
+                      key={m.value}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '0.4rem',
+                        padding: '0.35rem 0.75rem', borderRadius: 99, cursor: 'pointer',
+                        border: `1.5px solid ${checked ? m.color : 'var(--color-border)'}`,
+                        background: checked ? `${m.color}14` : 'var(--color-surface)',
+                        transition: 'all 0.15s', userSelect: 'none',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleMarca(m.value)}
+                        style={{ accentColor: m.color, width: 14, height: 14, cursor: 'pointer' }}
+                      />
+                      <span style={{ fontSize: '0.8125rem', fontWeight: checked ? 600 : 400, color: checked ? m.color : 'var(--color-text-muted)' }}>
+                        {m.label}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
             </div>
 
             {/* Batch */}

@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
-import { MARCA_ACTIVA, TODAS_LAS_MARCAS } from '../lib/config'
-
-const MARCAS = TODAS_LAS_MARCAS.map((m) => m.value)
+import { MARCA_ACTIVA, TODAS_LAS_MARCAS, parseMarcas, serializeMarcas, getMarcaColor } from '../lib/config'
 
 const FORMATOS_OPCIONES = ['ESTATICO', 'VIDEO', 'PROMO', 'REEL', 'HISTORIA']
 
@@ -31,6 +29,14 @@ export default function BatchFormPage() {
         ? prev.filter((f) => f !== formato)
         : [...prev, formato]
     )
+  }
+
+  const toggleMarca = (value) => {
+    const current = parseMarcas(marca)
+    const next = current.includes(value)
+      ? current.filter((v) => v !== value)
+      : [...current, value]
+    setMarca(serializeMarcas(next))
   }
 
   useEffect(() => {
@@ -132,17 +138,35 @@ export default function BatchFormPage() {
 
           <div className="field-group">
             <div className="field">
-              <label className="field-label" htmlFor="marca">Marca</label>
-              <select
-                id="marca"
-                className="select"
-                value={marca}
-                onChange={(e) => setMarca(e.target.value)}
-              >
-                {MARCAS.map((m) => (
-                  <option key={m}>{m}</option>
-                ))}
-              </select>
+              <label className="field-label">Marca(s)</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.625rem', marginTop: '0.25rem' }}>
+                {TODAS_LAS_MARCAS.map((m) => {
+                  const checked = parseMarcas(marca).includes(m.value)
+                  return (
+                    <label
+                      key={m.value}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '0.4rem',
+                        padding: '0.35rem 0.75rem', borderRadius: 99, cursor: 'pointer',
+                        border: `1.5px solid ${checked ? m.color : 'var(--color-border)'}`,
+                        background: checked ? `${m.color}14` : 'var(--color-surface)',
+                        transition: 'all 0.15s',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleMarca(m.value)}
+                        style={{ accentColor: m.color, width: 14, height: 14, cursor: 'pointer' }}
+                      />
+                      <span style={{ fontSize: '0.8125rem', fontWeight: checked ? 600 : 400, color: checked ? m.color : 'var(--color-text-muted)' }}>
+                        {m.label}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
             </div>
 
             <div className="field">

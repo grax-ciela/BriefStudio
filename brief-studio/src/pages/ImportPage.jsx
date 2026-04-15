@@ -8,7 +8,7 @@ import {
   CAMPOS_OBLIGATORIOS,
 } from '../lib/importParser'
 import { supabase } from '../lib/supabaseClient'
-import { MARCA_ACTIVA } from '../lib/config'
+import { MARCA_ACTIVA, TODAS_LAS_MARCAS, parseMarcas, serializeMarcas, getMarcaColor, getMarcaLabel } from '../lib/config'
 
 // Colores por nivel de confianza
 const CONFIANZA_ESTILOS = {
@@ -441,6 +441,25 @@ const EQUIPO_OVERRIDE = [
 function PreviewPanel({ preview, importando, onVolver, onImportar }) {
   const { batchesNuevos, briefsNuevos, hooksNuevos, errores, advertencias, taskeadasCount = 0 } = preview
 
+  // Estado de marcas editables por batch: { [bi]: string[] }
+  const [marcasState, setMarcasState] = useState(() => {
+    const initial = {}
+    batchesNuevos.forEach((batch, bi) => {
+      initial[bi] = parseMarcas(batch.marca)
+    })
+    return initial
+  })
+
+  const toggleMarcaBatch = (bi, value) => {
+    setMarcasState((prev) => {
+      const current = prev[bi] || []
+      const next = current.includes(value)
+        ? current.filter((v) => v !== value)
+        : [...current, value]
+      return { ...prev, [bi]: next }
+    })
+  }
+
   // Estado de asignación extraordinaria por batch
   const [overrides, setOverrides] = useState({})
 
@@ -572,8 +591,12 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
           console.warn(`⚠️ [OVERRIDE] Seleccionaste a "${overrideObj?.label}" pero su GID está vacío. La asignación será automática.`)
         }
 
+        // Serializar marcas seleccionadas para este batch
+        const marcaFinal = serializeMarcas(marcasState[bi] || []) || batch.marca
+
         return {
           ...batch,
+          marca: marcaFinal,
           briefs: batch.briefs
             .filter((_, ri) => selected.has(`brief-${bi}-${ri}`))
             .map((brief, ri) => {
@@ -581,6 +604,7 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
               const prod = produccionState[prodKey] || { grabacion: false, edicion: false, diseno: false }
               return {
                 ...brief,
+                marca: marcaFinal, // los briefs heredan las marcas del batch
                 asignado_override: overrideGid,
                 requiere_grabacion: prod.grabacion,
                 requiere_edicion: prod.edicion,
@@ -721,8 +745,35 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
                   onChange={() => toggleBatch(bi, batch)}
                 />
                 <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text, #1A202C)' }}>{batch.nombre}</span>
-                {batch.marca && <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted, #A0AEC0)' }}>{batch.marca}</span>}
                 {batch.fecha && <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted, #A0AEC0)' }}>{batch.fecha}</span>}
+                {/* Multi-select de marca por batch */}
+                <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', marginLeft: '0.25rem' }}>
+                  {TODAS_LAS_MARCAS.map((m) => {
+                    const checked = (marcasState[bi] || []).includes(m.value)
+                    return (
+                      <label
+                        key={m.value}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.3rem',
+                          padding: '0.15rem 0.5rem', borderRadius: 99, cursor: 'pointer',
+                          border: `1.5px solid ${checked ? m.color : 'var(--color-border)'}`,
+                          background: checked ? `${m.color}14` : 'transparent',
+                          transition: 'all 0.12s', userSelect: 'none',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleMarcaBatch(bi, m.value)}
+                          style={{ accentColor: m.color, width: 12, height: 12, cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '0.72rem', fontWeight: checked ? 700 : 400, color: checked ? m.color : 'var(--color-text-muted)' }}>
+                          {m.label}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
                 <select
                   className="select-override"
                   style={{ marginLeft: 'auto' }}

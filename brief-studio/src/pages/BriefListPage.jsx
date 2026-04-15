@@ -6,6 +6,7 @@ import { TODAS_LAS_MARCAS } from '../lib/config'
 import Modal from '../components/Modal'
 import DropdownMenu from '../components/DropdownMenu'
 import { Send, Trash2, FolderOpen, FileText, RotateCcw, X, ChevronDown, ChevronRight, Plus, ExternalLink, MoreVertical, Edit3, ArrowRightLeft, Loader2, Link2, Search } from 'lucide-react'
+import { parseMarcas, getMarcaLabel, getMarcaColor } from '../lib/config'
 
 const CAMPOS = [
   { key: 'angulo',     label: 'Ángulo' },
@@ -563,10 +564,17 @@ function VistaPorBatch({ navigate }) {
               flexWrap: 'wrap',
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                    {batch.marca}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' }}>
+                  {parseMarcas(batch.marca).map((v) => (
+                    <span key={v} style={{
+                      fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
+                      padding: '0.1rem 0.45rem', borderRadius: 99,
+                      background: `${getMarcaColor(v)}14`, color: getMarcaColor(v),
+                      border: `1px solid ${getMarcaColor(v)}35`,
+                    }}>
+                      {getMarcaLabel(v)}
+                    </span>
+                  ))}
                   {batch.formatos?.map((f) => <span key={f} className="formato-chip">{f}</span>)}
                 </div>
                 <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)' }}>{batch.nombre}</span>

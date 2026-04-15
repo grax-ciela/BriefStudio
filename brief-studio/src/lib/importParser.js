@@ -15,6 +15,8 @@
  *   4. Limpieza: texto del hook = título; resto de hipótesis = descripción.
  */
 
+import { parseMarcasCSV, serializeMarcas } from './config'
+
 // ─────────────────────────────────────────────
 // 1. CONSTANTES
 // ─────────────────────────────────────────────
@@ -551,7 +553,8 @@ export function construirPreview(filas, mapeo) {
     const batchNombre = val(fila, 'nombre_batch')
 
     const base = {
-      marca:        val(fila, 'marca'),
+      // Normaliza "MyCOCOS, MENNT" → "mycocos_cl,mennt_cl"
+      marca:        serializeMarcas(parseMarcasCSV(val(fila, 'marca'))),
       nombre_batch: batchNombre,
       fecha:        val(fila, 'fecha'),
       deseo:        val(fila, 'deseo'),
