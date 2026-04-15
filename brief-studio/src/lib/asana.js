@@ -47,6 +47,49 @@ export async function crearTareaAsana({
 }
 
 /**
+ * Sincroniza (actualiza) una tarea existente en Asana vía Edge Function.
+ * Retorna { ok, titulo } o lanza error.
+ */
+export async function sincronizarTareaAsana({
+  taskGid,
+  concepto,
+  batch,
+  marca,
+  formato,
+  produccion,
+  hook,
+  angulo,
+  deseo,
+  referencia,
+  hooksCount,
+  objetivo,
+  linkBrief,
+}) {
+  const { data, error } = await supabase.functions.invoke('sincronizar-tarea-asana', {
+    body: {
+      taskGid,
+      concepto,
+      batch,
+      marca,
+      formato,
+      produccion,
+      hook,
+      angulo,
+      deseo,
+      referencia,
+      hooksCount,
+      objetivo,
+      linkBrief: linkBrief || null,
+    },
+  })
+
+  if (error) throw new Error(error.message || 'Error al sincronizar con Asana')
+  if (!data.ok) throw new Error(data.error || 'Error desconocido de Asana')
+
+  return data
+}
+
+/**
  * Descarta una tarea en Asana: renombra con [DESCARTADO] y la marca como completada.
  */
 export async function descartarTareaAsana(taskGid, tituloOriginal) {

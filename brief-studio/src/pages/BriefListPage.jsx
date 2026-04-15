@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
-import { crearTareaAsana, descartarTareaAsana } from '../lib/asana'
+import { crearTareaAsana, descartarTareaAsana, sincronizarTareaAsana } from '../lib/asana'
 import { TODAS_LAS_MARCAS } from '../lib/config'
 import Modal from '../components/Modal'
 import DropdownMenu from '../components/DropdownMenu'
-import { Send, Trash2, FolderOpen, FileText, RotateCcw, X, ChevronDown, ChevronRight, Plus, ExternalLink, MoreVertical, Edit3, ArrowRightLeft, Loader2, Link2, Search } from 'lucide-react'
-import { parseMarcas, getMarcaLabel, getMarcaColor } from '../lib/config'
+import { Send, Trash2, FolderOpen, FileText, RotateCcw, X, ChevronDown, ChevronRight, Plus, ExternalLink, MoreVertical, Edit3, ArrowRightLeft, Loader2, Link2, Search, Save, RefreshCw } from 'lucide-react'
+import { parseMarcas, getMarcaLabel, getMarcaColor, serializeMarcas } from '../lib/config'
 
 const CAMPOS = [
   { key: 'angulo',     label: 'Ángulo' },
@@ -149,7 +149,7 @@ async function toggleDescartado(brief, setBriefs, { onError } = {}) {
 }
 
 // ── Fila de brief reutilizable ────────────────────────────────────
-function FilaBrief({ brief, batch, index, total, setBriefs, mostrarDescartados, navigate, onMissingHook, onMoverBatch }) {
+function FilaBrief({ brief, batch, index, total, setBriefs, mostrarDescartados, navigate, onMissingHook, onMoverBatch, editMode, editConcepto, onConceptoChange }) {
   const estaDescartado = brief.descartado
 
   if (estaDescartado && !mostrarDescartados) return null
@@ -174,6 +174,34 @@ function FilaBrief({ brief, batch, index, total, setBriefs, mostrarDescartados, 
         transition: 'opacity 0.2s',
       }}
     >
+      {/* ── Modo edición: input inline ── */}
+      {editMode ? (
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.875rem',
+          padding: '0.625rem 0.75rem 0.625rem 1.375rem',
+        }}>
+          <span style={{
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            color: 'var(--color-text-muted)',
+            minWidth: '1.5rem',
+            textAlign: 'center',
+            flexShrink: 0,
+          }}>
+            #{brief.numero || index + 1}
+          </span>
+          <input
+            type="text"
+            value={editConcepto ?? brief.concepto}
+            onChange={(e) => onConceptoChange(e.target.value)}
+            className="select-override"
+            style={{ flex: 1, fontSize: '0.9375rem', fontWeight: 500, height: '2.1rem' }}
+          />
+        </div>
+      ) : (
       <Link
         to={`/briefs/${brief.id}`}
         style={{
@@ -215,65 +243,71 @@ function FilaBrief({ brief, batch, index, total, setBriefs, mostrarDescartados, 
           )}
         </div>
       </Link>
-
-      {/* Link al Brief (doc original) */}
-      {!estaDescartado && brief.link_brief && (
-        <a
-          href={brief.link_brief}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-link-brief"
-          title="Abrir documento del brief"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Link2 size={12} /> Doc
-        </a>
       )}
 
-      {/* Botón Asana / Badge asignado + enlace */}
-      {!estaDescartado && (
-        brief.enviado_asana
-          ? <span style={{ display: 'inline-flex', alignItems: 'center', margin: '0 0.5rem' }}>
-              <span className="badge-asignado">ASIGNADO</span>
-              {brief.asana_task_url && (
-                <a href={brief.asana_task_url} target="_blank" rel="noopener noreferrer"
-                   className="btn-asana-link" title="Ver en Asana">
-                  <ExternalLink size={12} />
-                </a>
-              )}
-            </span>
-          : <button
-              type="button"
-              className="btn-asana"
-              style={{ margin: '0 0.5rem' }}
-              onClick={handleEnviarAsana}
+      {/* Acciones — ocultas en modo edición */}
+      {!editMode && (
+        <>
+          {/* Link al Brief (doc original) */}
+          {!estaDescartado && brief.link_brief && (
+            <a
+              href={brief.link_brief}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-link-brief"
+              title="Abrir documento del brief"
+              onClick={(e) => e.stopPropagation()}
             >
-              <Send size={12} /> Asana
+              <Link2 size={12} /> Doc
+            </a>
+          )}
+
+          {/* Botón Asana / Badge asignado + enlace */}
+          {!estaDescartado && (
+            brief.enviado_asana
+              ? <span style={{ display: 'inline-flex', alignItems: 'center', margin: '0 0.5rem' }}>
+                  <span className="badge-asignado">ASIGNADO</span>
+                  {brief.asana_task_url && (
+                    <a href={brief.asana_task_url} target="_blank" rel="noopener noreferrer"
+                       className="btn-asana-link" title="Ver en Asana">
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
+                </span>
+              : <button
+                  type="button"
+                  className="btn-asana"
+                  style={{ margin: '0 0.5rem' }}
+                  onClick={handleEnviarAsana}
+                >
+                  <Send size={12} /> Asana
+                </button>
+          )}
+
+          {estaDescartado && (
+            <button
+              type="button"
+              onClick={() => toggleDescartado(brief, setBriefs)}
+              className="btn-descartar"
+              title="Restaurar idea"
+            >
+              <RotateCcw size={12} /> Restaurar
             </button>
-      )}
+          )}
 
-      {estaDescartado && (
-        <button
-          type="button"
-          onClick={() => toggleDescartado(brief, setBriefs)}
-          className="btn-descartar"
-          title="Restaurar idea"
-        >
-          <RotateCcw size={12} /> Restaurar
-        </button>
+          <div style={{ padding: '0 0.5rem', flexShrink: 0 }}>
+            <DropdownMenu
+              trigger={<MoreVertical size={16} />}
+              items={[
+                { icon: <Edit3 size={14} />, label: 'Editar Brief', onClick: () => navigate(`/briefs/${brief.id}/edit`) },
+                { icon: <ArrowRightLeft size={14} />, label: 'Mover a otro Batch', onClick: () => onMoverBatch(brief) },
+                ...(!estaDescartado ? [{ icon: <X size={14} />, label: 'Descartar', onClick: () => toggleDescartado(brief, setBriefs) }] : []),
+                { icon: <Trash2 size={14} />, label: 'Eliminar', danger: true, onClick: () => eliminarBriefDeBD(brief.id, setBriefs) },
+              ]}
+            />
+          </div>
+        </>
       )}
-
-      <div style={{ padding: '0 0.5rem', flexShrink: 0 }}>
-        <DropdownMenu
-          trigger={<MoreVertical size={16} />}
-          items={[
-            { icon: <Edit3 size={14} />, label: 'Editar Brief', onClick: () => navigate(`/briefs/${brief.id}/edit`) },
-            { icon: <ArrowRightLeft size={14} />, label: 'Mover a otro Batch', onClick: () => onMoverBatch(brief) },
-            ...(!estaDescartado ? [{ icon: <X size={14} />, label: 'Descartar', onClick: () => toggleDescartado(brief, setBriefs) }] : []),
-            { icon: <Trash2 size={14} />, label: 'Eliminar', danger: true, onClick: () => eliminarBriefDeBD(brief.id, setBriefs) },
-          ]}
-        />
-      </div>
     </div>
   )
 }
@@ -298,6 +332,13 @@ function VistaPorBatch({ navigate }) {
   const [batchDestino, setBatchDestino] = useState('')
   const [enviandoBatch, setEnviandoBatch] = useState({})
   const [modalResultado, setModalResultado] = useState(null)
+  // ── Modo edición por batch ──
+  const [editBatchId, setEditBatchId] = useState(null)
+  const [editData, setEditData] = useState({ nombre: '', fecha: '', marca: '', briefs: {} })
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false)
+  // ── Sincronización Asana ──
+  const [syncState, setSyncState] = useState({}) // { [batchId]: { loading } }
+  const [modalSync, setModalSync] = useState(null)
   // ── Filtros y vistas ──
   const [tabActual, setTabActual] = useState('pendientes') // 'pendientes' | 'enviados'
   const [filtroBusqueda, setFiltroBusqueda] = useState('')
@@ -342,6 +383,108 @@ function VistaPorBatch({ navigate }) {
       setBriefs((prev) => prev.filter((b) => b.batch_id !== batch.id))
     }
     setEliminandoBatch(null)
+  }
+
+  // ── Edición inline por batch ─────────────────────────────────────
+  const entrarEdicion = (batch) => {
+    setEditBatchId(batch.id)
+    setEditData({ nombre: batch.nombre || '', fecha: batch.fecha || '', marca: batch.marca || '', briefs: {} })
+  }
+
+  const cancelarEdicion = () => {
+    setEditBatchId(null)
+    setEditData({ nombre: '', fecha: '', marca: '', briefs: {} })
+  }
+
+  const guardarEdicion = async (batch) => {
+    setGuardandoEdicion(true)
+    try {
+      const { error: bErr } = await supabase.from('batches').update({
+        nombre: editData.nombre.trim(),
+        fecha: editData.fecha || null,
+        marca: editData.marca,
+      }).eq('id', batch.id)
+      if (bErr) throw bErr
+
+      setBatches((prev) => prev.map((b) =>
+        b.id === batch.id
+          ? { ...b, nombre: editData.nombre.trim(), fecha: editData.fecha || null, marca: editData.marca }
+          : b
+      ))
+
+      // Guardar conceptos de briefs que cambiaron
+      for (const [briefId, concepto] of Object.entries(editData.briefs)) {
+        const original = briefs.find((b) => b.id === briefId)
+        if (original && concepto.trim() !== original.concepto) {
+          const { error: brErr } = await supabase.from('briefs').update({ concepto: concepto.trim() }).eq('id', briefId)
+          if (brErr) throw brErr
+          setBriefs((prev) => prev.map((b) => b.id === briefId ? { ...b, concepto: concepto.trim() } : b))
+        }
+      }
+      cancelarEdicion()
+    } catch (err) {
+      alert('Error al guardar: ' + err.message)
+    }
+    setGuardandoEdicion(false)
+  }
+
+  // ── Sincronizar batch completo con Asana ─────────────────────────
+  const sincronizarConAsana = async (batch) => {
+    const conTarea = briefs.filter(
+      (b) => b.batch_id === batch.id && !b.descartado && b.asana_task_url
+    )
+    if (conTarea.length === 0) {
+      alert('No hay briefs con tareas en Asana para sincronizar en este batch.')
+      return
+    }
+
+    setSyncState((prev) => ({ ...prev, [batch.id]: { loading: true } }))
+
+    let okCount = 0, errCount = 0
+    for (const brief of conTarea) {
+      const taskGid = extraerTaskGid(brief.asana_task_url)
+      if (!taskGid) { errCount++; continue }
+
+      const { data: hookData } = await supabase
+        .from('hooks').select('texto, estado')
+        .eq('brief_id', brief.id)
+        .order('orden', { ascending: true })
+        .limit(1).single()
+
+      const { count: hooksCount } = await supabase
+        .from('hooks').select('id', { count: 'exact', head: true })
+        .eq('brief_id', brief.id)
+
+      const esStatic = batch.formatos?.length === 1 && batch.formatos[0]?.toLowerCase() === 'static'
+      const produccion = esStatic
+        ? 'Diseño Estático'
+        : hookData?.estado === 'shooting' ? 'Grabación + Edición' : 'Solo Edición'
+
+      try {
+        await sincronizarTareaAsana({
+          taskGid,
+          concepto: brief.concepto,
+          batch: batch.nombre,
+          marca: brief.marca || batch.marca,
+          formato: batch.formatos?.[0] || 'Video',
+          produccion,
+          hook: hookData?.texto || '',
+          angulo: brief.angulo || '',
+          deseo: brief.deseo || '',
+          referencia: brief.referencia || '',
+          hooksCount: hooksCount || 1,
+          objetivo: brief.objetivo || '',
+          linkBrief: brief.link_brief || null,
+        })
+        okCount++
+      } catch (err) {
+        console.error('[sincronizarConAsana]', err)
+        errCount++
+      }
+    }
+
+    setSyncState((prev) => ({ ...prev, [batch.id]: { loading: false } }))
+    setModalSync({ batchNombre: batch.nombre, ok: okCount, errores: errCount, total: conTarea.length })
   }
 
   useEffect(() => {
@@ -558,75 +701,183 @@ function VistaPorBatch({ navigate }) {
               padding: '1rem 1.375rem',
               borderBottom: todosLosBriefs.length > 0 ? '1px solid var(--color-border)' : 'none',
               display: 'flex',
-              alignItems: 'center',
+              alignItems: editBatchId === batch.id ? 'flex-start' : 'center',
               justifyContent: 'space-between',
               gap: '1rem',
               flexWrap: 'wrap',
             }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' }}>
-                  {parseMarcas(batch.marca).map((v) => (
-                    <span key={v} style={{
-                      fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
-                      padding: '0.1rem 0.45rem', borderRadius: 99,
-                      background: `${getMarcaColor(v)}14`, color: getMarcaColor(v),
-                      border: `1px solid ${getMarcaColor(v)}35`,
-                    }}>
-                      {getMarcaLabel(v)}
-                    </span>
-                  ))}
-                  {batch.formatos?.map((f) => <span key={f} className="formato-chip">{f}</span>)}
-                </div>
-                <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)' }}>{batch.nombre}</span>
-                {batch.fecha && (
-                  <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-                    Lanzamiento: {formatFecha(batch.fecha)}
-                  </span>
-                )}
-              </div>
+              {editBatchId === batch.id ? (
+                /* ── Modo edición ── */
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', flex: 1, minWidth: 0 }}>
+                    {/* Nombre */}
+                    <input
+                      type="text"
+                      value={editData.nombre}
+                      onChange={(e) => setEditData((p) => ({ ...p, nombre: e.target.value }))}
+                      className="select-override"
+                      style={{ fontWeight: 600, fontSize: '1rem', height: '2.1rem' }}
+                      placeholder="Nombre del batch"
+                    />
+                    {/* Fecha: año + mes */}
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <select
+                        value={editData.fecha ? editData.fecha.slice(0, 4) : ''}
+                        onChange={(e) => {
+                          const anio = e.target.value
+                          const mes = editData.fecha ? editData.fecha.slice(5, 7) : '01'
+                          setEditData((p) => ({ ...p, fecha: anio ? `${anio}-${mes}-01` : '' }))
+                        }}
+                        className="select-override"
+                        style={{ flex: '0 0 auto' }}
+                      >
+                        <option value="">Año</option>
+                        {ANIOS.map((a) => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                      <select
+                        value={editData.fecha ? editData.fecha.slice(5, 7) : ''}
+                        onChange={(e) => {
+                          const mes = e.target.value
+                          const anio = editData.fecha ? editData.fecha.slice(0, 4) : '2026'
+                          setEditData((p) => ({ ...p, fecha: mes ? `${anio}-${mes}-01` : '' }))
+                        }}
+                        className="select-override"
+                        style={{ flex: '0 0 auto' }}
+                      >
+                        <option value="">Mes</option>
+                        {MESES_VAL.map((m, i) => <option key={m} value={m}>{MESES_LABEL[i]}</option>)}
+                      </select>
+                    </div>
+                    {/* Marca: multi-chips */}
+                    <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+                      {TODAS_LAS_MARCAS.map((m) => {
+                        const sel = parseMarcas(editData.marca).includes(m.value)
+                        return (
+                          <button
+                            key={m.value}
+                            type="button"
+                            onClick={() => {
+                              const arr = parseMarcas(editData.marca)
+                              const next = sel ? arr.filter((v) => v !== m.value) : [...arr, m.value]
+                              setEditData((p) => ({ ...p, marca: serializeMarcas(next) }))
+                            }}
+                            style={{
+                              fontSize: '0.72rem', fontWeight: 700, padding: '0.2rem 0.6rem',
+                              borderRadius: 99, cursor: 'pointer',
+                              border: sel ? `2px solid ${m.color}` : '2px solid var(--color-border)',
+                              background: sel ? `${m.color}18` : 'transparent',
+                              color: sel ? m.color : 'var(--color-text-muted)',
+                              transition: 'all 0.15s',
+                            }}
+                          >
+                            {m.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
+                    <button className="btn btn-secondary btn-sm" onClick={cancelarEdicion} disabled={guardandoEdicion}>
+                      Cancelar
+                    </button>
+                    <button className="btn btn-primary btn-sm" onClick={() => guardarEdicion(batch)} disabled={guardandoEdicion}>
+                      {guardandoEdicion
+                        ? <><Loader2 size={13} className="spin" /> Guardando…</>
+                        : <><Save size={13} /> Guardar</>
+                      }
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* ── Modo normal ── */
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' }}>
+                      {parseMarcas(batch.marca).map((v) => (
+                        <span key={v} style={{
+                          fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
+                          padding: '0.1rem 0.45rem', borderRadius: 99,
+                          background: `${getMarcaColor(v)}14`, color: getMarcaColor(v),
+                          border: `1px solid ${getMarcaColor(v)}35`,
+                        }}>
+                          {getMarcaLabel(v)}
+                        </span>
+                      ))}
+                      {batch.formatos?.map((f) => <span key={f} className="formato-chip">{f}</span>)}
+                    </div>
+                    <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)' }}>{batch.nombre}</span>
+                    {batch.fecha && (
+                      <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+                        Lanzamiento: {formatFecha(batch.fecha)}
+                      </span>
+                    )}
+                  </div>
 
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                <span style={{
-                  fontSize: '0.75rem', fontWeight: 500, color: 'var(--color-text-muted)',
-                  background: 'var(--color-bg)', border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius-pill)', padding: '0.2rem 0.625rem',
-                }}>
-                  {activos.length} {activos.length === 1 ? 'brief' : 'briefs'}
-                </span>
-                {/* Badge estado Asana */}
-                {activos.length > 0 && nPendientes === 0 && (
-                  <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '0.2rem 0.5rem', borderRadius: 99, background: 'rgba(16,185,129,0.12)', color: '#059669', whiteSpace: 'nowrap' }}>
-                    ✓ Todo en Asana
-                  </span>
-                )}
-                {activos.length > 0 && nEnviados > 0 && nPendientes > 0 && (
-                  <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '0.2rem 0.5rem', borderRadius: 99, background: 'rgba(245,158,11,0.12)', color: '#b45309', whiteSpace: 'nowrap' }}>
-                    {nPendientes}/{activos.length} pendiente{nPendientes !== 1 ? 's' : ''}
-                  </span>
-                )}
-                {activos.some((b) => !b.enviado_asana) && (
-                  <button
-                    className="btn-enviar-todo"
-                    disabled={!!enviandoBatch[batch.id]}
-                    onClick={() => enviarTodoBatch(batch)}
-                  >
-                    {enviandoBatch[batch.id]
-                      ? <><Loader2 size={13} className="spin" /> Enviando...</>
-                      : <><Send size={13} /> Enviar todo a Asana</>
-                    }
-                  </button>
-                )}
-                <Link to={`/briefs/new?batch_id=${batch.id}`}>
-                  <button className="btn btn-primary btn-sm">+ Brief</button>
-                </Link>
-                <button
-                  className="btn btn-danger btn-sm"
-                  disabled={eliminandoBatch === batch.id}
-                  onClick={() => eliminarBatch(batch)}
-                >
-                  {eliminandoBatch === batch.id ? '...' : <Trash2 size={14} />}
-                </button>
-              </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{
+                      fontSize: '0.75rem', fontWeight: 500, color: 'var(--color-text-muted)',
+                      background: 'var(--color-bg)', border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-pill)', padding: '0.2rem 0.625rem',
+                    }}>
+                      {activos.length} {activos.length === 1 ? 'brief' : 'briefs'}
+                    </span>
+                    {/* Badge estado Asana */}
+                    {activos.length > 0 && nPendientes === 0 && (
+                      <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '0.2rem 0.5rem', borderRadius: 99, background: 'rgba(16,185,129,0.12)', color: '#059669', whiteSpace: 'nowrap' }}>
+                        ✓ Todo en Asana
+                      </span>
+                    )}
+                    {activos.length > 0 && nEnviados > 0 && nPendientes > 0 && (
+                      <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '0.2rem 0.5rem', borderRadius: 99, background: 'rgba(245,158,11,0.12)', color: '#b45309', whiteSpace: 'nowrap' }}>
+                        {nPendientes}/{activos.length} pendiente{nPendientes !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {activos.some((b) => !b.enviado_asana) && (
+                      <button
+                        className="btn-enviar-todo"
+                        disabled={!!enviandoBatch[batch.id]}
+                        onClick={() => enviarTodoBatch(batch)}
+                      >
+                        {enviandoBatch[batch.id]
+                          ? <><Loader2 size={13} className="spin" /> Enviando...</>
+                          : <><Send size={13} /> Enviar todo a Asana</>
+                        }
+                      </button>
+                    )}
+                    {/* Botón Sincronizar Asana */}
+                    {activos.some((b) => b.asana_task_url) && (
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        disabled={!!syncState[batch.id]?.loading}
+                        onClick={() => sincronizarConAsana(batch)}
+                        title="Actualizar tareas existentes en Asana con los datos actuales"
+                      >
+                        {syncState[batch.id]?.loading
+                          ? <><Loader2 size={13} className="spin" /> Sincronizando…</>
+                          : <><RefreshCw size={13} /> Sincronizar Asana</>
+                        }
+                      </button>
+                    )}
+                    {/* Botón Editar */}
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => entrarEdicion(batch)}
+                    >
+                      <Edit3 size={13} /> Editar
+                    </button>
+                    <Link to={`/briefs/new?batch_id=${batch.id}`}>
+                      <button className="btn btn-primary btn-sm">+ Brief</button>
+                    </Link>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      disabled={eliminandoBatch === batch.id}
+                      onClick={() => eliminarBatch(batch)}
+                    >
+                      {eliminandoBatch === batch.id ? '...' : <Trash2 size={14} />}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* ── Briefs activos ── */}
@@ -644,6 +895,9 @@ function VistaPorBatch({ navigate }) {
                     navigate={navigate}
                     onMissingHook={(briefId) => setModalValidacion({ briefId })}
                     onMoverBatch={(b) => { setModalMover({ briefId: b.id, batchIdActual: b.batch_id }); setBatchDestino('') }}
+                    editMode={editBatchId === batch.id}
+                    editConcepto={editData.briefs[brief.id] ?? brief.concepto}
+                    onConceptoChange={(val) => setEditData((prev) => ({ ...prev, briefs: { ...prev.briefs, [brief.id]: val } }))}
                   />
                 ))}
               </div>
@@ -789,6 +1043,33 @@ function VistaPorBatch({ navigate }) {
             <option key={b.id} value={b.id}>{b.nombre} ({b.marca})</option>
           ))}
         </select>
+      </Modal>
+
+      {/* ── Modal Resultado Sincronización Asana ── */}
+      <Modal
+        open={!!modalSync}
+        onClose={() => setModalSync(null)}
+        title="Sincronización con Asana"
+        footer={
+          <button className="btn-crema" onClick={() => setModalSync(null)}>Listo</button>
+        }
+      >
+        <p style={{ marginBottom: '0.75rem' }}>
+          Batch: <strong>{modalSync?.batchNombre}</strong>
+        </p>
+        {modalSync?.ok > 0 && (
+          <p style={{ color: '#4ade80', marginBottom: '0.375rem' }}>
+            ✅ {modalSync.ok} {modalSync.ok === 1 ? 'tarea actualizada' : 'tareas actualizadas'} en Asana
+          </p>
+        )}
+        {modalSync?.errores > 0 && (
+          <p style={{ color: '#f87171' }}>
+            ❌ {modalSync.errores} {modalSync.errores === 1 ? 'error' : 'errores'} al sincronizar
+          </p>
+        )}
+        {modalSync?.ok === 0 && modalSync?.errores === 0 && (
+          <p style={{ color: 'var(--color-text-muted)' }}>No se encontraron tareas para actualizar.</p>
+        )}
       </Modal>
     </div>
   )
