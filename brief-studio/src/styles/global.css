@@ -1080,13 +1080,26 @@ a { color: inherit; text-decoration: none; }
 .dropdown-item--danger { color: #f87171; }
 .dropdown-item--danger:hover { background: #1c1111; }
 
-/* ─── Override Selector (Import) ──────────────────────────── */
+/* ─── Override Selector / Input toolbar ────────────────────── */
 .select-override {
-  padding: 0.25rem 0.5rem; border-radius: var(--radius-md);
-  border: 1px solid var(--color-border); background: var(--color-surface);
-  font-size: 0.75rem; font-family: inherit; color: var(--color-text);
-  max-width: 180px;
+  padding: 0 0.625rem;
+  height: 2rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: 0.75rem;
+  font-family: inherit;
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 0.15s;
+  /* Sin max-width: el contenedor flex controla el tamaño */
 }
+.select-override:focus {
+  border-color: var(--color-primary, #0B1D3A);
+  box-shadow: 0 0 0 2px rgba(11,29,58,0.12);
+}
+select.select-override { cursor: pointer; }
+input[type="month"].select-override { padding-right: 0.375rem; }
 
 /* ─── Responsive ───────────────────────────────────────────── */
 @media (max-width: 1280px) {

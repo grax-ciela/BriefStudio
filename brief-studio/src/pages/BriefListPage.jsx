@@ -456,6 +456,7 @@ function VistaPorBatch({ navigate }) {
           onChange={(e) => setFiltroFecha(e.target.value)}
           className="select-override"
           title="Filtrar por mes de lanzamiento"
+          style={{ minWidth: '9.5rem', flex: '0 0 auto' }}
         />
         {/* Marca */}
         <select
