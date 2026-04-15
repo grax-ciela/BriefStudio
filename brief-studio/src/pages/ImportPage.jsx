@@ -439,7 +439,7 @@ const EQUIPO_OVERRIDE = [
 
 // ── Componente de Preview ────────────────────────────────────────────────────
 function PreviewPanel({ preview, importando, onVolver, onImportar }) {
-  const { batchesNuevos, briefsNuevos, hooksNuevos, errores, advertencias } = preview
+  const { batchesNuevos, briefsNuevos, hooksNuevos, errores, advertencias, taskeadasCount = 0 } = preview
 
   // Estado de asignación extraordinaria por batch
   const [overrides, setOverrides] = useState({})
@@ -636,6 +636,26 @@ function PreviewPanel({ preview, importando, onVolver, onImportar }) {
           </div>
         ))}
       </div>
+
+      {/* Banner TASKEADOS omitidos */}
+      {taskeadasCount > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '0.625rem',
+          background: 'rgba(107,114,128,0.08)',
+          border: '1px solid rgba(107,114,128,0.2)',
+          borderRadius: 8,
+          padding: '0.625rem 1rem',
+          marginBottom: '1.25rem',
+          fontSize: '0.8125rem',
+          color: 'var(--color-text-muted, #6B7280)',
+        }}>
+          <span style={{ fontSize: '1rem' }}>✅</span>
+          <span>
+            <strong style={{ color: 'var(--color-text, #1a1a1a)' }}>{taskeadasCount} {taskeadasCount === 1 ? 'fila omitida' : 'filas omitidas'}</strong>
+            {' '}porque su columna ESTADO es <code style={{ fontSize: '0.75rem', background: 'rgba(0,0,0,0.06)', padding: '0.1rem 0.35rem', borderRadius: 4 }}>TASKEADO</code> — ya fueron procesadas en Asana.
+          </span>
+        </div>
+      )}
 
       {/* Errores */}
       {errores.length > 0 && (

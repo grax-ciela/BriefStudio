@@ -498,15 +498,27 @@ export function construirPreview(filas, mapeo) {
   }
 
   // ─────────────────────────────────────────
+  // FILTRO TASKEADO: Excluir filas ya procesadas
+  // ─────────────────────────────────────────
+  const filasNoTaskeadas = filas.filter((fila) => {
+    const estado = val(fila, 'estado_hook').toLowerCase()
+    return estado !== 'taskeado'
+  })
+  const taskeadasCount = filas.length - filasNoTaskeadas.length
+  if (taskeadasCount > 0) {
+    console.log(`[importParser] Filtro TASKEADO: ${taskeadasCount} filas excluidas (ya procesadas en Asana)`)
+  }
+
+  // ─────────────────────────────────────────
   // FILTRO DE INTEGRIDAD: Anti-Briefs-Fantasma
   // ─────────────────────────────────────────
   const MIN_CAMPOS_NO_VACIOS = 3
-  const totalAntes = filas.length
+  const totalAntes = filasNoTaskeadas.length
 
   // Anotar índice original para trazabilidad post-filtro
-  filas.forEach((fila, i) => { fila._origIdx = i })
+  filasNoTaskeadas.forEach((fila, i) => { fila._origIdx = i })
 
-  const filasValidas = filas.filter((fila) => {
+  const filasValidas = filasNoTaskeadas.filter((fila) => {
     // Contar campos mapeados que tienen valor real
     const valoresReales = mapeo
       .filter(m => !m.ignorar && m.campoSugerido)
@@ -643,6 +655,7 @@ export function construirPreview(filas, mapeo) {
     hooksNuevos: allHooks,
     errores,
     advertencias,
+    taskeadasCount,
   }
 }
 
