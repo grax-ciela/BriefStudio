@@ -684,7 +684,7 @@ function limpiarFecha(fechaStr) {
  *   marca, batch_id, numero, concepto, angulo, deseo,
  *   referencia, hipotesis, guion, formato
  */
-export async function ejecutarImport(preview, supabase, marcaDefault = 'mycocos') {
+export async function ejecutarImport(preview, supabase, marcaDefault = '') {
   const creados = []
   const fallidos = []
 

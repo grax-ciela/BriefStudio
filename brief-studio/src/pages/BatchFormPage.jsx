@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
-import { MARCA_ACTIVA } from '../lib/config'
+import { MARCA_ACTIVA, TODAS_LAS_MARCAS } from '../lib/config'
 
-const MARCAS = [MARCA_ACTIVA]
+const MARCAS = TODAS_LAS_MARCAS.map((m) => m.value)
 
 const FORMATOS_OPCIONES = ['ESTATICO', 'VIDEO', 'PROMO', 'REEL', 'HISTORIA']
 

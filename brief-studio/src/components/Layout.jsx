@@ -1,5 +1,5 @@
 import { NavLink, Link } from 'react-router-dom'
-import { LayoutGrid, Upload, Settings, Plus, BookOpen } from 'lucide-react'
+import { LayoutGrid, Upload, Settings, Plus, BookOpen, BarChart2 } from 'lucide-react'
 
 export default function Layout({ children }) {
   return (
@@ -11,6 +11,14 @@ export default function Layout({ children }) {
         </div>
 
         <div className="sidebar-section-label">Principal</div>
+
+        <NavLink
+          to="/dashboard"
+          className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
+        >
+          <BarChart2 size={18} />
+          <span>Dashboard</span>
+        </NavLink>
 
         <NavLink
           to="/"

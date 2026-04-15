@@ -7,11 +7,13 @@ import BatchListPage from './pages/BatchListPage'
 import BatchFormPage from './pages/BatchFormPage'
 import ImportPage from './pages/ImportPage'
 import GuidePage from './pages/GuidePage'
+import DashboardPage from './pages/DashboardPage'
 
 export default function App() {
   return (
     <Layout>
       <Routes>
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/" element={<BriefListPage />} />
         <Route path="/briefs/new" element={<BriefFormPage />} />
         <Route path="/briefs/:id" element={<BriefDetailPage />} />

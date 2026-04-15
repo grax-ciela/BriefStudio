@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
-import { MARCA_ACTIVA } from '../lib/config'
+// MARCA_ACTIVA eliminado — ahora se muestran todas las marcas
 
 const MARCAS = ['MyCOCOS® CL', 'MyHUEVOS® MX', 'MyHUEVOS® COL', 'MENNT® CL']
 
@@ -28,7 +28,6 @@ export default function BatchListPage() {
       const { data, error } = await supabase
         .from('batches')
         .select('*, briefs(count)')
-        .ilike('marca', `%${MARCA_ACTIVA}%`)
         .order('fecha', { ascending: false })
 
       if (error) {

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { crearTareaAsana, descartarTareaAsana } from '../lib/asana'
-import { MARCA_ACTIVA } from '../lib/config'
+import { TODAS_LAS_MARCAS } from '../lib/config'
 import Modal from '../components/Modal'
 import DropdownMenu from '../components/DropdownMenu'
 import { Send, Trash2, FolderOpen, FileText, RotateCcw, X, ChevronDown, ChevronRight, Plus, ExternalLink, MoreVertical, Edit3, ArrowRightLeft, Loader2, Link2 } from 'lucide-react'
@@ -297,6 +297,7 @@ function VistaPorBatch({ navigate }) {
   const [batchDestino, setBatchDestino] = useState('')
   const [enviandoBatch, setEnviandoBatch] = useState({}) // { batchId: true }
   const [modalResultado, setModalResultado] = useState(null) // { batchNombre, enviados, sinHook, errores }
+  const [filtroMarca, setFiltroMarca] = useState('') // '' = todas las marcas
 
   const enviarTodoBatch = useCallback(async (batch) => {
     const pendientes = briefs.filter(
@@ -337,8 +338,8 @@ function VistaPorBatch({ navigate }) {
   useEffect(() => {
     const cargar = async () => {
       const [batchRes, briefRes] = await Promise.all([
-        supabase.from('batches').select('*').ilike('marca', `%${MARCA_ACTIVA}%`).order('fecha', { ascending: false }),
-        supabase.from('briefs').select('*').ilike('marca', `%${MARCA_ACTIVA}%`).order('numero', { ascending: true }),
+        supabase.from('batches').select('*').order('fecha', { ascending: false }),
+        supabase.from('briefs').select('*').order('numero', { ascending: true }),
       ])
 
       if (batchRes.error) { alert('Error al cargar batches'); return }
@@ -361,9 +362,46 @@ function VistaPorBatch({ navigate }) {
     </div>
   )
 
+  // Filtrado client-side por marca seleccionada
+  const batchesFiltrados = filtroMarca
+    ? batches.filter((b) => b.marca?.toLowerCase().includes(filtroMarca.toLowerCase()))
+    : batches
+
   return (
     <div style={{ display: 'grid', gap: '1.75rem' }}>
-      {batches.map((batch) => {
+      {/* Selector de marca */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>Marca:</span>
+        <select
+          value={filtroMarca}
+          onChange={(e) => setFiltroMarca(e.target.value)}
+          className="select-override"
+          style={{ minWidth: 160 }}
+        >
+          <option value="">Todas las marcas</option>
+          {TODAS_LAS_MARCAS.map((m) => (
+            <option key={m.value} value={m.value}>{m.label}</option>
+          ))}
+        </select>
+        {filtroMarca && (
+          <button
+            type="button"
+            onClick={() => setFiltroMarca('')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}
+          >
+            ✕ Limpiar
+          </button>
+        )}
+      </div>
+
+      {batchesFiltrados.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-state-icon"><FolderOpen size={40} /></div>
+          <p className="empty-state-text">No hay batches para esta marca.</p>
+        </div>
+      )}
+
+      {batchesFiltrados.map((batch) => {
         const todosLosBriefs = briefs
           .filter((b) => b.batch_id === batch.id)
           .sort((a, b) => (a.numero || 0) - (b.numero || 0))
