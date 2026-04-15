@@ -5,7 +5,7 @@ import { crearTareaAsana, descartarTareaAsana } from '../lib/asana'
 import { TODAS_LAS_MARCAS } from '../lib/config'
 import Modal from '../components/Modal'
 import DropdownMenu from '../components/DropdownMenu'
-import { Send, Trash2, FolderOpen, FileText, RotateCcw, X, ChevronDown, ChevronRight, Plus, ExternalLink, MoreVertical, Edit3, ArrowRightLeft, Loader2, Link2 } from 'lucide-react'
+import { Send, Trash2, FolderOpen, FileText, RotateCcw, X, ChevronDown, ChevronRight, Plus, ExternalLink, MoreVertical, Edit3, ArrowRightLeft, Loader2, Link2, Search } from 'lucide-react'
 
 const CAMPOS = [
   { key: 'angulo',     label: 'Ángulo' },
@@ -292,12 +292,19 @@ function VistaPorBatch({ navigate }) {
   const [loading, setLoading] = useState(true)
   const [descartadosVisibles, setDescartadosVisibles] = useState({})
   const [eliminandoBatch, setEliminandoBatch] = useState(null)
-  const [modalValidacion, setModalValidacion] = useState(null) // { briefId }
-  const [modalMover, setModalMover] = useState(null) // { briefId, batchIdActual }
+  const [modalValidacion, setModalValidacion] = useState(null)
+  const [modalMover, setModalMover] = useState(null)
   const [batchDestino, setBatchDestino] = useState('')
-  const [enviandoBatch, setEnviandoBatch] = useState({}) // { batchId: true }
-  const [modalResultado, setModalResultado] = useState(null) // { batchNombre, enviados, sinHook, errores }
-  const [filtroMarca, setFiltroMarca] = useState('') // '' = todas las marcas
+  const [enviandoBatch, setEnviandoBatch] = useState({})
+  const [modalResultado, setModalResultado] = useState(null)
+  // ── Filtros y vistas ──
+  const [tabActual, setTabActual] = useState('pendientes') // 'pendientes' | 'enviados'
+  const [filtroBusqueda, setFiltroBusqueda] = useState('')
+  const [filtroFecha, setFiltroFecha] = useState('') // YYYY-MM
+  const [filtroMarca, setFiltroMarca] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('') // '' | 'sin-enviar' | 'parcial' | 'vacio'
+  const limpiarFiltros = () => { setFiltroBusqueda(''); setFiltroFecha(''); setFiltroMarca(''); setFiltroEstado('') }
+  const hayFiltrosActivos = !!(filtroBusqueda || filtroFecha || filtroMarca || filtroEstado)
 
   const enviarTodoBatch = useCallback(async (batch) => {
     const pendientes = briefs.filter(
@@ -362,46 +369,153 @@ function VistaPorBatch({ navigate }) {
     </div>
   )
 
-  // Filtrado client-side por marca seleccionada
-  const batchesFiltrados = filtroMarca
-    ? batches.filter((b) => b.marca?.toLowerCase().includes(filtroMarca.toLowerCase()))
-    : batches
+  // ── Segregación por estado Asana ──
+  const getActivosPorBatch = (batchId) => briefs.filter((b) => b.batch_id === batchId && !b.descartado)
+  const getEstadoBatch = (batchId) => {
+    const activos = getActivosPorBatch(batchId)
+    if (activos.length === 0) return 'vacio'
+    const nEnv = activos.filter((b) => b.enviado_asana).length
+    if (nEnv === 0) return 'sin-enviar'
+    if (nEnv === activos.length) return 'completo'
+    return 'parcial'
+  }
+  const batchesPendientes = batches.filter((b) => {
+    const e = getEstadoBatch(b.id)
+    return e === 'sin-enviar' || e === 'parcial' || e === 'vacio'
+  })
+  const batchesEnviados = batches.filter((b) => getEstadoBatch(b.id) === 'completo')
+
+  // ── Aplicar filtros a la lista activa ──
+  const aplicarFiltros = (lista) => lista.filter((batch) => {
+    if (filtroBusqueda && !batch.nombre?.toLowerCase().includes(filtroBusqueda.toLowerCase())) return false
+    if (filtroFecha && !(batch.fecha || '').startsWith(filtroFecha)) return false
+    if (filtroMarca && !batch.marca?.toLowerCase().includes(filtroMarca.toLowerCase())) return false
+    if (filtroEstado) {
+      const estado = getEstadoBatch(batch.id)
+      if (filtroEstado !== estado) return false
+    }
+    return true
+  })
+  const listaVisible = aplicarFiltros(tabActual === 'pendientes' ? batchesPendientes : batchesEnviados)
 
   return (
-    <div style={{ display: 'grid', gap: '1.75rem' }}>
-      {/* Selector de marca */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>Marca:</span>
+    <div style={{ display: 'grid', gap: '1.5rem' }}>
+
+      {/* ── Sub-tabs: Pendientes / Enviados a Asana ── */}
+      <div className="hook-toggle" style={{ alignSelf: 'start' }}>
+        <button
+          type="button"
+          className={`hook-toggle-btn ${tabActual === 'pendientes' ? 'active-vista' : ''}`}
+          onClick={() => { setTabActual('pendientes'); setFiltroEstado('') }}
+        >
+          Pendientes
+          <span style={{
+            marginLeft: '0.375rem', fontSize: '0.68rem', fontWeight: 700,
+            background: tabActual === 'pendientes' ? 'rgba(255,255,255,0.25)' : 'var(--color-border)',
+            color: tabActual === 'pendientes' ? 'inherit' : 'var(--color-text-muted)',
+            borderRadius: 99, padding: '0.05rem 0.45rem',
+          }}>
+            {batchesPendientes.length}
+          </span>
+        </button>
+        <button
+          type="button"
+          className={`hook-toggle-btn ${tabActual === 'enviados' ? 'active-vista' : ''}`}
+          onClick={() => { setTabActual('enviados'); setFiltroEstado('') }}
+        >
+          Enviados a Asana
+          <span style={{
+            marginLeft: '0.375rem', fontSize: '0.68rem', fontWeight: 700,
+            background: tabActual === 'enviados' ? 'rgba(255,255,255,0.25)' : 'var(--color-border)',
+            color: tabActual === 'enviados' ? 'inherit' : 'var(--color-text-muted)',
+            borderRadius: 99, padding: '0.05rem 0.45rem',
+          }}>
+            {batchesEnviados.length}
+          </span>
+        </button>
+      </div>
+
+      {/* ── Toolbar de filtros ── */}
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        {/* Búsqueda por nombre */}
+        <div style={{ position: 'relative', flex: '1 1 180px', minWidth: 140 }}>
+          <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
+          <input
+            type="text"
+            placeholder="Buscar batch…"
+            value={filtroBusqueda}
+            onChange={(e) => setFiltroBusqueda(e.target.value)}
+            className="select-override"
+            style={{ paddingLeft: '2rem', width: '100%', boxSizing: 'border-box' }}
+          />
+        </div>
+        {/* Mes de lanzamiento */}
+        <input
+          type="month"
+          value={filtroFecha}
+          onChange={(e) => setFiltroFecha(e.target.value)}
+          className="select-override"
+          title="Filtrar por mes de lanzamiento"
+        />
+        {/* Marca */}
         <select
           value={filtroMarca}
           onChange={(e) => setFiltroMarca(e.target.value)}
           className="select-override"
-          style={{ minWidth: 160 }}
+          style={{ flex: '0 1 165px' }}
         >
           <option value="">Todas las marcas</option>
           {TODAS_LAS_MARCAS.map((m) => (
             <option key={m.value} value={m.value}>{m.label}</option>
           ))}
         </select>
-        {filtroMarca && (
+        {/* Estado (solo en pestaña Pendientes) */}
+        {tabActual === 'pendientes' && (
+          <select
+            value={filtroEstado}
+            onChange={(e) => setFiltroEstado(e.target.value)}
+            className="select-override"
+            style={{ flex: '0 1 195px' }}
+          >
+            <option value="">Cualquier estado</option>
+            <option value="sin-enviar">Ningún brief enviado</option>
+            <option value="parcial">Enviados parcialmente</option>
+            <option value="vacio">Sin briefs aún</option>
+          </select>
+        )}
+        {/* Botón limpiar */}
+        {hayFiltrosActivos && (
           <button
             type="button"
-            onClick={() => setFiltroMarca('')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}
+            onClick={limpiarFiltros}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap', flexShrink: 0 }}
           >
-            ✕ Limpiar
+            <X size={13} /> Limpiar
           </button>
         )}
       </div>
 
-      {batchesFiltrados.length === 0 && (
+      {/* ── Lista vacía ── */}
+      {listaVisible.length === 0 && (
         <div className="empty-state">
           <div className="empty-state-icon"><FolderOpen size={40} /></div>
-          <p className="empty-state-text">No hay batches para esta marca.</p>
+          <p className="empty-state-text">
+            {hayFiltrosActivos
+              ? 'No hay batches que coincidan con los filtros.'
+              : tabActual === 'pendientes'
+                ? 'No hay batches con briefs pendientes. ¡Todo está enviado a Asana!'
+                : 'Aún no hay batches completamente enviados a Asana.'
+            }
+          </p>
+          {hayFiltrosActivos && (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={limpiarFiltros} style={{ marginTop: '0.75rem' }}>
+              Limpiar filtros
+            </button>
+          )}
         </div>
       )}
 
-      {batchesFiltrados.map((batch) => {
+      {listaVisible.map((batch) => {
         const todosLosBriefs = briefs
           .filter((b) => b.batch_id === batch.id)
           .sort((a, b) => (a.numero || 0) - (b.numero || 0))
@@ -409,6 +523,8 @@ function VistaPorBatch({ navigate }) {
         const activos = todosLosBriefs.filter((b) => !b.descartado)
         const descartados = todosLosBriefs.filter((b) => b.descartado)
         const verDescartados = descartadosVisibles[batch.id] || false
+        const nEnviados = activos.filter((b) => b.enviado_asana).length
+        const nPendientes = activos.length - nEnviados
 
         return (
           <div key={batch.id} className="section-block" style={{ padding: 0, overflow: 'hidden' }}>
@@ -445,6 +561,17 @@ function VistaPorBatch({ navigate }) {
                 }}>
                   {activos.length} {activos.length === 1 ? 'brief' : 'briefs'}
                 </span>
+                {/* Badge estado Asana */}
+                {activos.length > 0 && nPendientes === 0 && (
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '0.2rem 0.5rem', borderRadius: 99, background: 'rgba(16,185,129,0.12)', color: '#059669', whiteSpace: 'nowrap' }}>
+                    ✓ Todo en Asana
+                  </span>
+                )}
+                {activos.length > 0 && nEnviados > 0 && nPendientes > 0 && (
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '0.2rem 0.5rem', borderRadius: 99, background: 'rgba(245,158,11,0.12)', color: '#b45309', whiteSpace: 'nowrap' }}>
+                    {nPendientes}/{activos.length} pendiente{nPendientes !== 1 ? 's' : ''}
+                  </span>
+                )}
                 {activos.some((b) => !b.enviado_asana) && (
                   <button
                     className="btn-enviar-todo"
