@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { TODAS_LAS_MARCAS } from '../lib/config'
-import { Send, Film, Scissors, Clock, BarChart2, TrendingUp } from 'lucide-react'
+import { Send, Film, Scissors, Clock, BarChart2, TrendingUp, Users } from 'lucide-react'
 
 // ── Helpers ──────────────────────────────────────────────────────
 function formatFechaRelativa(fechaStr) {
@@ -58,6 +58,60 @@ function KpiCard({ icon, label, value, sub, color = 'var(--color-primary)' }) {
   )
 }
 
+// ── Equipo (mismos slugs que asignado_override en briefs) ────────
+const EQUIPO = [
+  { value: 'christian', label: 'Christian Torres' },
+  { value: 'tamara',    label: 'Tamara Peñaloza' },
+  { value: 'rafa',      label: 'Rafael Azuaje' },
+  { value: 'diego',     label: 'Diego Martin' },
+  { value: 'javiera',   label: 'Javiera Ahumada' },
+  { value: 'ignacia',   label: 'Ignacia Vergara' },
+  { value: 'felex',     label: 'Felex' },
+  { value: 'graciela',  label: 'Graciela' },
+  { value: 'eduardo',   label: 'Eduardo' },
+  { value: 'dakota',    label: 'Dakota' },
+  { value: 'fauadz',    label: 'Fauadz' },
+]
+
+// ── Barra de carga por persona ────────────────────────────────────
+function EquipoBar({ label, total, enviados, max }) {
+  const pctTotal    = max > 0 ? Math.round((total / max) * 100) : 0
+  const pctEnviados = total > 0 ? Math.round((enviados / total) * 100) : 0
+  const pendientes  = total - enviados
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+        <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text)' }}>{label}</span>
+        <div style={{ display: 'flex', gap: '0.625rem', alignItems: 'center' }}>
+          {enviados > 0 && (
+            <span style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 600 }}>
+              ✓ {enviados} en Asana
+            </span>
+          )}
+          {pendientes > 0 && (
+            <span style={{ fontSize: '0.72rem', color: '#b45309', fontWeight: 600 }}>
+              {pendientes} pendiente{pendientes !== 1 ? 's' : ''}
+            </span>
+          )}
+          <span style={{
+            fontSize: '0.8rem', fontWeight: 800, color: 'var(--color-text)',
+            background: 'var(--color-bg)', border: '1px solid var(--color-border)',
+            borderRadius: 99, padding: '0.1rem 0.5rem',
+          }}>
+            {total}
+          </span>
+        </div>
+      </div>
+      {/* Barra compuesta: verde (enviados) + azul oscuro (pendientes) */}
+      <div style={{ height: 8, background: 'var(--color-border)', borderRadius: 99, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${pctTotal}%`, background: 'var(--color-primary)', borderRadius: 99, display: 'flex', overflow: 'hidden' }}>
+          <div style={{ width: `${pctEnviados}%`, background: '#4ade80', height: '100%' }} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Componente Barra de marca ─────────────────────────────────────
 function MarcaBar({ label, count, total, color }) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0
@@ -89,7 +143,7 @@ export default function DashboardPage() {
       const [briefRes, batchRes] = await Promise.all([
         supabase
           .from('briefs')
-          .select('id, marca, enviado_asana, requiere_grabacion, requiere_edicion, created_at, concepto, batch_id, descartado'),
+          .select('id, marca, enviado_asana, requiere_grabacion, requiere_edicion, created_at, concepto, batch_id, descartado, asignado_override'),
         supabase
           .from('batches')
           .select('id, marca, nombre, fecha')
@@ -121,6 +175,17 @@ export default function DashboardPage() {
       b.marca?.toLowerCase().includes(m.value.replace('_cl', '').replace('_mx', '').replace('_col', ''))
     ).length,
   })).filter((m) => m.count > 0)
+
+  // ── Carga del equipo ──
+  const cargaEquipo = EQUIPO.map((persona) => ({
+    ...persona,
+    total:    activos.filter((b) => b.asignado_override === persona.value).length,
+    enviados: activos.filter((b) => b.asignado_override === persona.value && b.enviado_asana).length,
+  })).filter((p) => p.total > 0).sort((a, b) => b.total - a.total)
+
+  const maxCarga     = cargaEquipo[0]?.total || 1
+  const totalAsignados = cargaEquipo.reduce((s, p) => s + p.total, 0)
+  const sinAsignar   = activos.filter((b) => !b.asignado_override).length
 
   // ── Actividad reciente ──
   const recientes = [...activos]
@@ -231,6 +296,57 @@ export default function DashboardPage() {
             })}
           </div>
         </div>
+      </div>
+
+      {/* ── Carga del equipo ── */}
+      <div className="section-block" style={{ marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+          <Users size={16} color="var(--color-text-muted)" />
+          <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text)' }}>
+            Carga del equipo
+          </span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'auto' }}>
+            {totalAsignados} con asignación explícita · {sinAsignar} asignación automática
+          </span>
+        </div>
+
+        {cargaEquipo.length === 0 ? (
+          <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+            Aún no hay briefs con asignación explícita. Usa el campo "Asignar a" al crear o editar un brief.
+          </p>
+        ) : (
+          <div style={{ display: 'grid', gap: '0.875rem' }}>
+            {cargaEquipo.map((persona) => (
+              <EquipoBar
+                key={persona.value}
+                label={persona.label}
+                total={persona.total}
+                enviados={persona.enviados}
+                max={maxCarga}
+              />
+            ))}
+          </div>
+        )}
+
+        {sinAsignar > 0 && (
+          <div style={{
+            marginTop: '1rem',
+            padding: '0.5rem 0.875rem',
+            borderRadius: 8,
+            background: 'var(--color-bg)',
+            border: '1px solid var(--color-border)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+              Asignación automática por marca
+            </span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-muted)' }}>
+              {sinAsignar} brief{sinAsignar !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ── Actividad reciente ── */}
