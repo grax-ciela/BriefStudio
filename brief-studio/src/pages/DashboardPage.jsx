@@ -135,9 +135,23 @@ export default function DashboardPage() {
   const [briefs, setBriefs]         = useState([])
   const [batches, setBatches]       = useState([])
   const [loading, setLoading]       = useState(true)
-  const [cargaAsana, setCargaAsana] = useState([])
-  const [cargaLoading, setCargaLoading] = useState(true)
-  const [cargaError, setCargaError] = useState(null)
+  const [cargaAsana, setCargaAsana]       = useState([])
+  const [cargaLoading, setCargaLoading]   = useState(false)
+  const [cargaError, setCargaError]       = useState(null)
+  const [cargaConsultada, setCargaConsultada] = useState(false)
+
+  const cargarCargaAsana = async () => {
+    setCargaLoading(true)
+    setCargaError(null)
+    const { data, error } = await supabase.functions.invoke('carga-equipo')
+    if (error || !data?.ok) {
+      setCargaError(error?.message || data?.error || 'Error al consultar Asana')
+    } else {
+      setCargaAsana(data.carga || [])
+      setCargaConsultada(true)
+    }
+    setCargaLoading(false)
+  }
 
   useEffect(() => {
     const cargar = async () => {
@@ -157,20 +171,6 @@ export default function DashboardPage() {
     cargar()
   }, [])
 
-  useEffect(() => {
-    const cargarCarga = async () => {
-      setCargaLoading(true)
-      setCargaError(null)
-      const { data, error } = await supabase.functions.invoke('carga-equipo')
-      if (error || !data?.ok) {
-        setCargaError(error?.message || data?.error || 'Error al consultar Asana')
-      } else {
-        setCargaAsana(data.carga || [])
-      }
-      setCargaLoading(false)
-    }
-    cargarCarga()
-  }, [])
 
   if (loading) return <div className="loading">Cargando dashboard...</div>
 
@@ -303,40 +303,43 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Carga del equipo (desde Asana) ── */}
+      {/* ── Carga del equipo (desde Asana, manual) ── */}
       <div className="section-block" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
           <Users size={16} color="var(--color-text-muted)" />
           <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text)' }}>
             Carga del equipo
           </span>
-          <span style={{
-            fontSize: '0.68rem', fontWeight: 600, padding: '0.1rem 0.45rem',
-            borderRadius: 99, background: 'rgba(16,185,129,0.12)', color: '#059669',
-            marginLeft: '0.25rem',
-          }}>
-            Live · Asana
+          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+            · Asana
           </span>
-          {!cargaLoading && !cargaError && cargaAsana.length > 0 && (
+          {cargaConsultada && !cargaLoading && (
             <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'auto' }}>
-              {cargaAsana.reduce((s, p) => s + p.activas, 0)} tareas activas ·{' '}
+              {cargaAsana.reduce((s, p) => s + p.activas, 0)} activas ·{' '}
               {cargaAsana.reduce((s, p) => s + p.completadas, 0)} completadas
             </span>
           )}
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={cargarCargaAsana}
+            disabled={cargaLoading}
+            style={{ marginLeft: cargaConsultada ? '0' : 'auto' }}
+          >
+            {cargaLoading ? '⟳ Consultando…' : cargaConsultada ? '⟳ Actualizar' : '⟳ Consultar Asana'}
+          </button>
         </div>
 
         {cargaLoading ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>
-            <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⟳</span>
-            Consultando Asana…
+            <span>Consultando Asana…</span>
           </div>
         ) : cargaError ? (
           <p style={{ fontSize: '0.8125rem', color: '#991b1b', background: '#fee2e2', padding: '0.625rem 0.875rem', borderRadius: 8 }}>
             ⚠️ {cargaError}
           </p>
-        ) : cargaAsana.length === 0 ? (
+        ) : !cargaConsultada ? (
           <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-            No hay tareas asignadas en Asana creadas desde esta app.
+            Haz clic en "Consultar Asana" para ver la carga actual del equipo.
           </p>
         ) : (
           <div style={{ display: 'grid', gap: '0.875rem' }}>
@@ -346,7 +349,7 @@ export default function DashboardPage() {
                 nombre={persona.nombre}
                 activas={persona.activas}
                 completadas={persona.completadas}
-                max={cargaAsana[0].activas || 1}
+                max={Math.max(...cargaAsana.map(p => p.activas), 1)}
               />
             ))}
           </div>

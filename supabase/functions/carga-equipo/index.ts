@@ -4,6 +4,16 @@ import { createClient } from "jsr:@supabase/supabase-js@2"
 const ASANA_BASE  = "https://app.asana.com/api/1.0"
 const PROJECT_GID = "1210839779273759"
 
+// ── Equipo visible en el dashboard (GID → nombre a mostrar) ───────
+const EQUIPO_VISIBLE: Record<string, string> = {
+  "1207592291188665": "Christian (Friquiton)",
+  "1213483686471887": "Diego",
+  "1209248334964443": "Tamara",
+  "1211060457213910": "Rafael",
+  "1206322141323221": "Ignacia",
+  "1207207427326115": "Javiera",
+}
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, content-type, x-client-info, apikey",
@@ -90,26 +100,30 @@ Deno.serve(async (req) => {
     // Filtrar solo las creadas desde esta app
     const tareasApp = todasTareas.filter((t) => gidsApp.has(t.gid))
 
-    // Agrupar por asignado (activas = no completadas)
+    // Agrupar por asignado — solo el equipo visible
     const mapa: Record<string, { nombre: string; activas: number; completadas: number }> = {}
 
     for (const tarea of tareasApp) {
-      const gid  = tarea.assignee?.gid  ?? "__sin_asignar__"
-      const nombre = tarea.assignee?.name ?? "Sin asignar"
+      const gid = tarea.assignee?.gid
+      if (!gid || !EQUIPO_VISIBLE[gid]) continue  // ignorar si no está en el equipo
 
-      if (!mapa[gid]) mapa[gid] = { nombre, activas: 0, completadas: 0 }
-
+      if (!mapa[gid]) mapa[gid] = { nombre: EQUIPO_VISIBLE[gid], activas: 0, completadas: 0 }
       if (tarea.completed) mapa[gid].completadas++
       else                 mapa[gid].activas++
+    }
+
+    // Incluir todos los miembros aunque tengan 0 tareas
+    for (const [gid, nombre] of Object.entries(EQUIPO_VISIBLE)) {
+      if (!mapa[gid]) mapa[gid] = { nombre, activas: 0, completadas: 0 }
     }
 
     const carga = Object.entries(mapa)
       .map(([gid, info]) => ({
         gid,
-        nombre:     info.nombre,
-        activas:    info.activas,
+        nombre:      info.nombre,
+        activas:     info.activas,
         completadas: info.completadas,
-        total:      info.activas + info.completadas,
+        total:       info.activas + info.completadas,
       }))
       .sort((a, b) => b.activas - a.activas)
 
