@@ -694,6 +694,13 @@ function VistaPorBatch({ navigate }) {
         const nEnviados = activos.filter((b) => b.enviado_asana).length
         const nPendientes = activos.length - nEnviados
 
+        // ── Concepto compartido: si todos los activos tienen el mismo ──
+        const conceptosEdit = activos.map((b) => editData.briefs[b.id] ?? b.concepto)
+        const todosConceptosIguales = editBatchId === batch.id
+          && conceptosEdit.length > 0
+          && conceptosEdit.every((c) => c === conceptosEdit[0])
+        const conceptoComunVal = todosConceptosIguales ? conceptosEdit[0] : null
+
         return (
           <div key={batch.id} className="section-block" style={{ padding: 0, overflow: 'hidden' }}>
             {/* ── Header del batch ── */}
@@ -719,33 +726,51 @@ function VistaPorBatch({ navigate }) {
                       style={{ fontWeight: 600, fontSize: '1rem', height: '2.1rem' }}
                       placeholder="Nombre del batch"
                     />
-                    {/* Fecha: año + mes */}
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {/* Fecha: día + mes + año */}
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                       <select
-                        value={editData.fecha ? editData.fecha.slice(0, 4) : ''}
+                        value={editData.fecha ? editData.fecha.slice(8, 10) : ''}
                         onChange={(e) => {
-                          const anio = e.target.value
-                          const mes = editData.fecha ? editData.fecha.slice(5, 7) : '01'
-                          setEditData((p) => ({ ...p, fecha: anio ? `${anio}-${mes}-01` : '' }))
+                          const dia = e.target.value
+                          const anio = editData.fecha ? editData.fecha.slice(0, 4) : '2026'
+                          const mes  = editData.fecha ? editData.fecha.slice(5, 7) : '01'
+                          setEditData((p) => ({ ...p, fecha: dia ? `${anio}-${mes}-${dia}` : '' }))
                         }}
                         className="select-override"
                         style={{ flex: '0 0 auto' }}
                       >
-                        <option value="">Año</option>
-                        {ANIOS.map((a) => <option key={a} value={a}>{a}</option>)}
+                        <option value="">Día</option>
+                        {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0')).map((d) => (
+                          <option key={d} value={d}>{parseInt(d, 10)}</option>
+                        ))}
                       </select>
                       <select
                         value={editData.fecha ? editData.fecha.slice(5, 7) : ''}
                         onChange={(e) => {
-                          const mes = e.target.value
+                          const mes  = e.target.value
                           const anio = editData.fecha ? editData.fecha.slice(0, 4) : '2026'
-                          setEditData((p) => ({ ...p, fecha: mes ? `${anio}-${mes}-01` : '' }))
+                          const dia  = editData.fecha ? editData.fecha.slice(8, 10) : '01'
+                          setEditData((p) => ({ ...p, fecha: mes ? `${anio}-${mes}-${dia}` : '' }))
                         }}
                         className="select-override"
                         style={{ flex: '0 0 auto' }}
                       >
                         <option value="">Mes</option>
                         {MESES_VAL.map((m, i) => <option key={m} value={m}>{MESES_LABEL[i]}</option>)}
+                      </select>
+                      <select
+                        value={editData.fecha ? editData.fecha.slice(0, 4) : ''}
+                        onChange={(e) => {
+                          const anio = e.target.value
+                          const mes  = editData.fecha ? editData.fecha.slice(5, 7) : '01'
+                          const dia  = editData.fecha ? editData.fecha.slice(8, 10) : '01'
+                          setEditData((p) => ({ ...p, fecha: anio ? `${anio}-${mes}-${dia}` : '' }))
+                        }}
+                        className="select-override"
+                        style={{ flex: '0 0 auto' }}
+                      >
+                        <option value="">Año</option>
+                        {ANIOS.map((a) => <option key={a} value={a}>{a}</option>)}
                       </select>
                     </div>
                     {/* Marca: multi-chips */}
@@ -775,6 +800,28 @@ function VistaPorBatch({ navigate }) {
                         )
                       })}
                     </div>
+                    {/* Concepto compartido: solo cuando todos los briefs tienen el mismo título */}
+                    {todosConceptosIguales && (
+                      <div>
+                        <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginBottom: '0.3rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Concepto — todos los briefs
+                        </p>
+                        <input
+                          type="text"
+                          value={conceptoComunVal ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setEditData((p) => ({
+                              ...p,
+                              briefs: Object.fromEntries(activos.map((b) => [b.id, val])),
+                            }))
+                          }}
+                          className="select-override"
+                          style={{ fontSize: '0.9375rem', fontWeight: 500, height: '2.1rem', width: '100%' }}
+                          placeholder="Concepto común para todos los briefs"
+                        />
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
                     <button className="btn btn-secondary btn-sm" onClick={cancelarEdicion} disabled={guardandoEdicion}>
@@ -895,7 +942,7 @@ function VistaPorBatch({ navigate }) {
                     navigate={navigate}
                     onMissingHook={(briefId) => setModalValidacion({ briefId })}
                     onMoverBatch={(b) => { setModalMover({ briefId: b.id, batchIdActual: b.batch_id }); setBatchDestino('') }}
-                    editMode={editBatchId === batch.id}
+                    editMode={editBatchId === batch.id && !todosConceptosIguales}
                     editConcepto={editData.briefs[brief.id] ?? brief.concepto}
                     onConceptoChange={(val) => setEditData((prev) => ({ ...prev, briefs: { ...prev.briefs, [brief.id]: val } }))}
                   />
