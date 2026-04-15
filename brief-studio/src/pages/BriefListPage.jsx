@@ -300,11 +300,12 @@ function VistaPorBatch({ navigate }) {
   // ── Filtros y vistas ──
   const [tabActual, setTabActual] = useState('pendientes') // 'pendientes' | 'enviados'
   const [filtroBusqueda, setFiltroBusqueda] = useState('')
-  const [filtroFecha, setFiltroFecha] = useState('') // YYYY-MM
+  const [filtroAnio, setFiltroAnio] = useState('')   // '2026' | '2027' | ...
+  const [filtroMes, setFiltroMes] = useState('')     // '01' .. '12'
   const [filtroMarca, setFiltroMarca] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('') // '' | 'sin-enviar' | 'parcial' | 'vacio'
-  const limpiarFiltros = () => { setFiltroBusqueda(''); setFiltroFecha(''); setFiltroMarca(''); setFiltroEstado('') }
-  const hayFiltrosActivos = !!(filtroBusqueda || filtroFecha || filtroMarca || filtroEstado)
+  const limpiarFiltros = () => { setFiltroBusqueda(''); setFiltroAnio(''); setFiltroMes(''); setFiltroMarca(''); setFiltroEstado('') }
+  const hayFiltrosActivos = !!(filtroBusqueda || filtroAnio || filtroMes || filtroMarca || filtroEstado)
 
   const enviarTodoBatch = useCallback(async (batch) => {
     const pendientes = briefs.filter(
@@ -386,9 +387,18 @@ function VistaPorBatch({ navigate }) {
   const batchesEnviados = batches.filter((b) => getEstadoBatch(b.id) === 'completo')
 
   // ── Aplicar filtros a la lista activa ──
+  const MESES_LABEL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+  const MESES_VAL   = ['01','02','03','04','05','06','07','08','09','10','11','12']
+  const ANIOS = Array.from({ length: 5 }, (_, i) => String(2026 + i)) // 2026..2030
+
   const aplicarFiltros = (lista) => lista.filter((batch) => {
     if (filtroBusqueda && !batch.nombre?.toLowerCase().includes(filtroBusqueda.toLowerCase())) return false
-    if (filtroFecha && !(batch.fecha || '').startsWith(filtroFecha)) return false
+    if (filtroAnio || filtroMes) {
+      const fecha = batch.fecha || ''
+      if (filtroAnio && filtroMes) { if (!fecha.startsWith(`${filtroAnio}-${filtroMes}`)) return false }
+      else if (filtroAnio)         { if (!fecha.startsWith(filtroAnio)) return false }
+      else if (filtroMes)          { if (!fecha.slice(5, 7).includes(filtroMes)) return false }
+    }
     if (filtroMarca && !batch.marca?.toLowerCase().includes(filtroMarca.toLowerCase())) return false
     if (filtroEstado) {
       const estado = getEstadoBatch(batch.id)
@@ -449,15 +459,28 @@ function VistaPorBatch({ navigate }) {
             style={{ paddingLeft: '2rem', width: '100%', boxSizing: 'border-box' }}
           />
         </div>
-        {/* Mes de lanzamiento */}
-        <input
-          type="month"
-          value={filtroFecha}
-          onChange={(e) => setFiltroFecha(e.target.value)}
+        {/* Año */}
+        <select
+          value={filtroAnio}
+          onChange={(e) => setFiltroAnio(e.target.value)}
           className="select-override"
-          title="Filtrar por mes de lanzamiento"
-          style={{ minWidth: '9.5rem', flex: '0 0 auto' }}
-        />
+          style={{ flex: '0 0 auto' }}
+        >
+          <option value="">Año</option>
+          {ANIOS.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+        {/* Mes */}
+        <select
+          value={filtroMes}
+          onChange={(e) => setFiltroMes(e.target.value)}
+          className="select-override"
+          style={{ flex: '0 0 auto' }}
+        >
+          <option value="">Mes</option>
+          {MESES_VAL.map((m, i) => (
+            <option key={m} value={m}>{MESES_LABEL[i]}</option>
+          ))}
+        </select>
         {/* Marca */}
         <select
           value={filtroMarca}
