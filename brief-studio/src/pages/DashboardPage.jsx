@@ -75,8 +75,8 @@ const EQUIPO = [
 
 // ── Colores y etiquetas por marca ────────────────────────────────
 const MARCA_COLORES = {
-  mycocos:  '#0B1D3A',
-  myhuevos: '#10b981',
+  mycocos:  '#011936',
+  myhuevos: '#FFBA24',
   mennt:    '#374151',
   otra:     '#9ca3af',
 }
