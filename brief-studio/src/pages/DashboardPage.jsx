@@ -73,16 +73,37 @@ const EQUIPO = [
   { value: 'fauadz',    label: 'Fauadz' },
 ]
 
+// ── Colores y etiquetas por marca ────────────────────────────────
+const MARCA_COLORES = {
+  mycocos:  '#0B1D3A',
+  myhuevos: '#10b981',
+  mennt:    '#374151',
+  otra:     '#9ca3af',
+}
+const MARCA_ETIQUETAS = {
+  mycocos:  'MyCOCOS',
+  myhuevos: 'MyHUEVOS',
+  mennt:    'MENNT',
+  otra:     'Otra',
+}
+
 // ── Barra de carga por persona (datos desde Asana) ───────────────
-function EquipoBar({ nombre, activas, completadas, max }) {
-  const total   = activas + completadas
-  const pctBar  = max > 0 ? Math.round((activas / max) * 100) : 0
-  const pctComp = total > 0 ? Math.round((completadas / total) * 100) : 0
+function EquipoBar({ nombre, activas, completadas, max, porMarca = {} }) {
+  const total  = activas + completadas
+  const pctBar = max > 0 ? Math.round((activas / max) * 100) : 0
+
+  // Segmentos de marca con tareas activas, en orden fijo
+  const ORDEN_MARCAS = ['mycocos', 'myhuevos', 'mennt', 'otra']
+  const segmentos = ORDEN_MARCAS
+    .filter((m) => (porMarca[m] || 0) > 0)
+    .map((m) => ({ marca: m, count: porMarca[m] }))
+
   return (
     <div>
+      {/* Fila nombre + contadores */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
         <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text)' }}>{nombre}</span>
-        <div style={{ display: 'flex', gap: '0.625rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           {completadas > 0 && (
             <span style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 600 }}>
               ✓ {completadas} completada{completadas !== 1 ? 's' : ''}
@@ -100,10 +121,40 @@ function EquipoBar({ nombre, activas, completadas, max }) {
           </span>
         </div>
       </div>
-      {/* Barra: ancho = activas relativo al max. Verde oscuro = completadas dentro */}
+
+      {/* Chips de marca con cantidad */}
+      {segmentos.length > 0 && (
+        <div style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
+          {segmentos.map(({ marca, count }) => (
+            <span key={marca} style={{
+              fontSize: '0.67rem', fontWeight: 700, color: '#fff',
+              background: MARCA_COLORES[marca],
+              borderRadius: 99, padding: '0.1rem 0.45rem',
+              letterSpacing: '0.02em',
+            }}>
+              {MARCA_ETIQUETAS[marca]} {count}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Barra apilada por marca */}
       <div style={{ height: 8, background: 'var(--color-border)', borderRadius: 99, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${pctBar}%`, background: 'var(--color-primary)', borderRadius: 99, display: 'flex', overflow: 'hidden', minWidth: pctBar > 0 ? 4 : 0 }}>
-          <div style={{ width: `${pctComp}%`, background: '#4ade80', height: '100%' }} />
+        <div style={{
+          height: '100%', width: `${pctBar}%`,
+          display: 'flex', overflow: 'hidden',
+          minWidth: pctBar > 0 ? 4 : 0,
+        }}>
+          {segmentos.length > 0
+            ? segmentos.map(({ marca, count }) => (
+                <div key={marca} style={{
+                  flex: count,
+                  background: MARCA_COLORES[marca],
+                  height: '100%',
+                }} />
+              ))
+            : <div style={{ flex: 1, background: 'var(--color-primary)', height: '100%' }} />
+          }
         </div>
       </div>
     </div>
@@ -350,6 +401,7 @@ export default function DashboardPage() {
                 activas={persona.activas}
                 completadas={persona.completadas}
                 max={Math.max(...cargaAsana.map(p => p.activas), 1)}
+                porMarca={persona.porMarca || {}}
               />
             ))}
           </div>

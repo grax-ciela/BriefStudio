@@ -20,6 +20,16 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 }
 
+// ── Normaliza la marca a un slug canónico ──────────────────────────
+function normalizarMarca(marca: string | null | undefined): string {
+  if (!marca) return "otra"
+  const m = marca.toLowerCase()
+  if (m.includes("mycocos"))  return "mycocos"
+  if (m.includes("myhuevos")) return "myhuevos"
+  if (m.includes("mennt"))    return "mennt"
+  return "otra"
+}
+
 // ── Obtiene todas las tareas del proyecto con paginación ───────────
 async function fetchTareasProyecto(pat: string) {
   const tareas: Array<{
@@ -71,21 +81,23 @@ Deno.serve(async (req) => {
 
     const { data: briefs, error: dbErr } = await db
       .from("briefs")
-      .select("asana_task_url")
+      .select("asana_task_url, marca")
       .eq("enviado_asana", true)
       .not("asana_task_url", "is", null)
 
     if (dbErr) throw new Error(dbErr.message)
 
-    // Extraer GIDs del campo asana_task_url  (…/0/PROJECT/TASK_GID)
-    const gidsApp = new Set(
-      (briefs || [])
-        .map((b: { asana_task_url: string }) => {
-          const parts = b.asana_task_url?.split("/") || []
-          return parts[parts.length - 1]
-        })
-        .filter(Boolean),
-    )
+    // Extraer GIDs y construir mapa gid → marca normalizada
+    const gidsApp    = new Set<string>()
+    const gidMarcaMap = new Map<string, string>()
+
+    for (const b of briefs || []) {
+      const parts = (b.asana_task_url as string)?.split("/") || []
+      const gid   = parts[parts.length - 1]
+      if (!gid) continue
+      gidsApp.add(gid)
+      gidMarcaMap.set(gid, normalizarMarca(b.marca))
+    }
 
     if (gidsApp.size === 0) {
       return new Response(
@@ -101,20 +113,32 @@ Deno.serve(async (req) => {
     const tareasApp = todasTareas.filter((t) => gidsApp.has(t.gid))
 
     // Agrupar por asignado — solo el equipo visible
-    const mapa: Record<string, { nombre: string; activas: number; completadas: number }> = {}
+    const mapa: Record<string, {
+      nombre:      string
+      activas:     number
+      completadas: number
+      porMarca:    Record<string, number>
+    }> = {}
 
     for (const tarea of tareasApp) {
       const gid = tarea.assignee?.gid
       if (!gid || !EQUIPO_VISIBLE[gid]) continue  // ignorar si no está en el equipo
 
-      if (!mapa[gid]) mapa[gid] = { nombre: EQUIPO_VISIBLE[gid], activas: 0, completadas: 0 }
-      if (tarea.completed) mapa[gid].completadas++
-      else                 mapa[gid].activas++
+      if (!mapa[gid]) mapa[gid] = { nombre: EQUIPO_VISIBLE[gid], activas: 0, completadas: 0, porMarca: {} }
+
+      if (tarea.completed) {
+        mapa[gid].completadas++
+      } else {
+        mapa[gid].activas++
+        // Acumular por marca (solo tareas activas)
+        const marca = gidMarcaMap.get(tarea.gid) || "otra"
+        mapa[gid].porMarca[marca] = (mapa[gid].porMarca[marca] || 0) + 1
+      }
     }
 
     // Incluir todos los miembros aunque tengan 0 tareas
     for (const [gid, nombre] of Object.entries(EQUIPO_VISIBLE)) {
-      if (!mapa[gid]) mapa[gid] = { nombre, activas: 0, completadas: 0 }
+      if (!mapa[gid]) mapa[gid] = { nombre, activas: 0, completadas: 0, porMarca: {} }
     }
 
     const carga = Object.entries(mapa)
@@ -124,6 +148,7 @@ Deno.serve(async (req) => {
         activas:     info.activas,
         completadas: info.completadas,
         total:       info.activas + info.completadas,
+        porMarca:    info.porMarca,
       }))
       .sort((a, b) => b.activas - a.activas)
 
