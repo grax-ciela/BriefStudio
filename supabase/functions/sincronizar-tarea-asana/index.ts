@@ -42,6 +42,60 @@ const OBJETIVO_OPTS: Record<string, string> = {
   "b2b":             "1211840884990565",
 }
 
+// ── Notas ultra-estructuradas ────────────────────────────────────
+function buildNotes(p: {
+  linkBrief?:  string | null
+  objetivo?:   string
+  concepto:    string
+  angulo?:     string
+  deseo?:      string
+  hook?:       string
+  hooksCount?: number
+  produccion?: string
+  formato?:    string
+  marcaLabel?: string
+  batch?:      string
+  referencia?: string
+}): string {
+  const L: string[] = []
+
+  if (p.linkBrief) {
+    L.push(`🔗 LINK AL BRIEF: ${p.linkBrief}`)
+    L.push("")
+  }
+
+  L.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+  L.push("")
+
+  L.push("📌 [OBJETIVO]")
+  L.push(p.objetivo?.trim() || "No especificado")
+  L.push("")
+
+  L.push("🎯 [ESTRATEGIA]")
+  L.push(`Concepto: ${p.concepto}`)
+  if (p.angulo?.trim())  L.push(`Ángulo: ${p.angulo}`)
+  if (p.deseo?.trim())   L.push(`Deseo del usuario: ${p.deseo}`)
+  if (p.hook?.trim())    L.push(`Hook principal: ${p.hook}`)
+  if (p.hooksCount)      L.push(`Total de hooks: ${p.hooksCount}`)
+  L.push("")
+
+  L.push("📋 [INSTRUCCIONES DE PRODUCCIÓN]")
+  if (p.produccion?.trim()) L.push(`Producción: ${p.produccion}`)
+  L.push(`Formato: ${p.formato || "Video"}`)
+  if (p.marcaLabel)         L.push(`Marca: ${p.marcaLabel}`)
+  L.push(`Batch: ${p.batch || "—"}`)
+  L.push("")
+
+  L.push("🔗 [REFERENCIAS]")
+  L.push(p.referencia?.trim() || "Sin referencias")
+  L.push("")
+
+  L.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+  L.push("✅ Validado por Brief Studio")
+
+  return L.join("\n")
+}
+
 function norm(s: string): string {
   return (s || "").trim().toLowerCase().replace(/®/g, "").replace(/\s+cl$/i, "").replace(/\s+/g, " ")
 }
@@ -109,21 +163,21 @@ Deno.serve(async (req) => {
     const marcaLabel = marcaList.length > 1 ? marcaList.join(" + ") : (marca || "")
     const titulo = `[${batch || "—"}] - ${concepto} - ${marcaLabel}`
 
-    // ── Notas ────────────────────────────────────────────────────
-    const descParts: string[] = []
-    if (linkBrief) {
-      descParts.push(`\ud83d\udd17 Link al Brief: ${linkBrief}`)
-      descParts.push("")
-    }
-    descParts.push("---")
-    descParts.push("DETALLES DEL BRIEF:")
-    descParts.push(`- BATCH: ${batch || "—"}`)
-    descParts.push(`- CONCEPTO: ${concepto}`)
-    if (hook) descParts.push(`- HOOK: ${hook}`)
-    if (angulo) descParts.push(`- ÁNGULO: ${angulo}`)
-    if (deseo) descParts.push(`- DESEO: ${deseo}`)
-    if (produccion) descParts.push(`- PRODUCCIÓN: ${produccion}`)
-    if (referencia) descParts.push(`- REFERENCIA: ${referencia}`)
+    // ── Notas estructuradas ───────────────────────────────────────
+    const notes = buildNotes({
+      linkBrief,
+      objetivo,
+      concepto,
+      angulo,
+      deseo,
+      hook,
+      hooksCount: typeof hooksCount === "number" ? hooksCount : undefined,
+      produccion,
+      formato,
+      marcaLabel,
+      batch,
+      referencia,
+    })
 
     // ── Custom Fields ─────────────────────────────────────────────
     const customFields: Record<string, unknown> = {}
@@ -146,7 +200,7 @@ Deno.serve(async (req) => {
     // ── PUT /tasks/:taskGid ───────────────────────────────────────
     const updateData: Record<string, unknown> = {
       name: titulo,
-      notes: descParts.join("\n"),
+      notes,
       custom_fields: customFields,
     }
 

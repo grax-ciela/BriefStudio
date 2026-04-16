@@ -90,6 +90,109 @@ function determinarAssignee(
   return ""
 }
 
+// ── Notas ultra-estructuradas para Asana ──────────────────────
+function buildNotes(p: {
+  linkBrief?:   string | null
+  objetivo?:    string
+  concepto:     string
+  angulo?:      string
+  deseo?:       string
+  hipotesis?:   string
+  hook?:        string
+  hooksCount?:  number
+  produccion?:  string
+  formato?:     string
+  marcaLabel?:  string
+  batch?:       string
+  referencia?:  string
+}): string {
+  const L: string[] = []
+
+  // Link al Brief — prominente arriba
+  if (p.linkBrief) {
+    L.push(`🔗 LINK AL BRIEF: ${p.linkBrief}`)
+    L.push("")
+  }
+
+  L.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+  L.push("")
+
+  L.push("📌 [OBJETIVO]")
+  L.push(p.objetivo?.trim() || "No especificado")
+  L.push("")
+
+  L.push("🎯 [ESTRATEGIA]")
+  L.push(`Concepto: ${p.concepto}`)
+  if (p.angulo?.trim())    L.push(`Ángulo: ${p.angulo}`)
+  if (p.deseo?.trim())     L.push(`Deseo del usuario: ${p.deseo}`)
+  if (p.hipotesis?.trim()) L.push(`Hipótesis: ${p.hipotesis}`)
+  if (p.hook?.trim())      L.push(`Hook principal: ${p.hook}`)
+  if (p.hooksCount)        L.push(`Total de hooks: ${p.hooksCount}`)
+  L.push("")
+
+  L.push("📋 [INSTRUCCIONES DE PRODUCCIÓN]")
+  if (p.produccion?.trim()) L.push(`Producción: ${p.produccion}`)
+  L.push(`Formato: ${p.formato || "Video"}`)
+  if (p.marcaLabel)         L.push(`Marca: ${p.marcaLabel}`)
+  L.push(`Batch: ${p.batch || "—"}`)
+  L.push("")
+
+  L.push("🔗 [REFERENCIAS]")
+  L.push(p.referencia?.trim() || "Sin referencias")
+  L.push("")
+
+  L.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+  L.push("✅ Validado por Brief Studio")
+
+  return L.join("\n")
+}
+
+// ── Tag "Validado por Brief Studio" (cacheado por instancia) ──
+let _workspaceGid: string | null = null
+let _tagGid:       string | null = null
+const TAG_NAME = "Validado por Brief Studio"
+
+async function resolveValidadoTag(pat: string): Promise<string | null> {
+  try {
+    // 1. Obtener workspace del proyecto (1 llamada, luego en caché)
+    if (!_workspaceGid) {
+      const r = await fetch(
+        `${ASANA_BASE}/projects/${PROJECT_GID}?opt_fields=workspace.gid`,
+        { headers: { Authorization: `Bearer ${pat}` } },
+      )
+      const d = await r.json()
+      _workspaceGid = d.data?.workspace?.gid ?? null
+    }
+    if (!_workspaceGid) return null
+
+    // 2. Buscar o crear el tag (1 llamada, luego en caché)
+    if (!_tagGid) {
+      const r = await fetch(
+        `${ASANA_BASE}/workspaces/${_workspaceGid}/tags?opt_fields=gid,name&limit=100`,
+        { headers: { Authorization: `Bearer ${pat}` } },
+      )
+      const d = await r.json()
+      const found = (d.data || []).find(
+        (t: { gid: string; name: string }) => t.name === TAG_NAME,
+      )
+      if (found) {
+        _tagGid = found.gid
+      } else {
+        const cr = await fetch(`${ASANA_BASE}/tags`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${pat}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ data: { name: TAG_NAME, workspace: _workspaceGid } }),
+        })
+        const cd = await cr.json()
+        _tagGid = cd.data?.gid ?? null
+      }
+    }
+    return _tagGid
+  } catch {
+    return null   // no-fatal
+  }
+}
+
 // ── Helpers ────────────────────────────────────────────────────
 function norm(s: string): string {
   return (s || "").trim().toLowerCase().replace(/®/g, "").replace(/\s+cl$/i, "").replace(/\s+/g, " ")
@@ -148,25 +251,22 @@ Deno.serve(async (req) => {
     const marcaLabel = marcaList.length > 1 ? marcaList.join(' + ') : marca
     const titulo = `[${batch || "—"}] - ${concepto} - ${marcaLabel}`
 
-    // Descripción: link al brief primero, luego hipótesis, luego detalles
-    const descParts: string[] = []
-    if (linkBrief) {
-      descParts.push(`\ud83d\udd17 Link al Brief: ${linkBrief}`)
-      descParts.push("")
-    }
-    if (hipotesis) {
-      descParts.push(hipotesis)
-    }
-    descParts.push("")
-    descParts.push("---")
-    descParts.push("DETALLES DEL BRIEF:")
-    descParts.push(`- BATCH: ${batch || "—"}`)
-    descParts.push(`- CONCEPTO: ${concepto}`)
-    descParts.push(`- HOOK: ${hook || "—"}`)
-    descParts.push(`- ÁNGULO: ${angulo || "—"}`)
-    descParts.push(`- DESEO: ${deseo || "—"}`)
-    if (produccion) descParts.push(`- PRODUCCIÓN: ${produccion}`)
-    if (referencia) descParts.push(`- REFERENCIA: ${referencia}`)
+    // Notas estructuradas
+    const notes = buildNotes({
+      linkBrief,
+      objetivo,
+      concepto,
+      angulo,
+      deseo,
+      hipotesis,
+      hook,
+      hooksCount: typeof hooksCount === "number" ? hooksCount : undefined,
+      produccion,
+      formato,
+      marcaLabel,
+      batch,
+      referencia,
+    })
 
     // Custom fields
     const customFields: Record<string, unknown> = {}
@@ -192,7 +292,7 @@ Deno.serve(async (req) => {
     // Crear tarea
     const taskData: Record<string, unknown> = {
       name: titulo,
-      notes: descParts.join("\n"),
+      notes,
       projects: [PROJECT_GID],
       memberships: [{ project: PROJECT_GID, section: SECTION_GID }],
       custom_fields: customFields,
@@ -202,6 +302,14 @@ Deno.serve(async (req) => {
 
     const result = await asanaRequest("/tasks", "POST", { data: taskData })
     const taskGid = result.data.gid
+
+    // Añadir tag "Validado por Brief Studio" (no-fatal)
+    const tagGid = await resolveValidadoTag(pat)
+    if (tagGid) {
+      try {
+        await asanaRequest(`/tasks/${taskGid}/addTag`, "POST", { data: { tag: tagGid } })
+      } catch { /* no-fatal */ }
+    }
 
     return new Response(
       JSON.stringify({

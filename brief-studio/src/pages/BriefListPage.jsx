@@ -22,6 +22,20 @@ function extraerTaskGid(url) {
   return parts[parts.length - 1] || null
 }
 
+// ── Quality Check: campos recomendados antes del envío ───────
+function validarCalidad(brief) {
+  const avisos = []
+  if (!brief.angulo?.trim())
+    avisos.push({ campo: 'Ángulo', msg: 'El ángulo define el enfoque creativo para el editor/diseñador.' })
+  if (!brief.referencia?.trim())
+    avisos.push({ campo: 'Referencia', msg: 'Los links de referencia reducen iteraciones en producción.' })
+  if (!brief.link_brief?.trim())
+    avisos.push({ campo: 'Link al Brief', msg: 'El documento del brief es el primer dato que Asana muestra.' })
+  if (!brief.objetivo?.trim())
+    avisos.push({ campo: 'Objetivo', msg: 'Sin objetivo no se pueden rellenar los campos de campaña en Asana.' })
+  return avisos   // vacío = brief completo ✅
+}
+
 // ── Función para enviar brief a Asana ────────────────────────
 async function enviarAAsana(brief, batchNombre, batchFormatos, setBriefs, { onMissingHook, silent } = {}) {
   console.log('🔴 [enviarAAsana] Brief completo:', { id: brief.id, concepto: brief.concepto, asignado_override: brief.asignado_override })
@@ -149,12 +163,18 @@ async function toggleDescartado(brief, setBriefs, { onError } = {}) {
 }
 
 // ── Fila de brief reutilizable ────────────────────────────────────
-function FilaBrief({ brief, batch, index, total, setBriefs, mostrarDescartados, navigate, onMissingHook, onMoverBatch, editMode, editConcepto, onConceptoChange }) {
+function FilaBrief({ brief, batch, index, total, setBriefs, mostrarDescartados, navigate, onMissingHook, onMoverBatch, onQualityCheck, editMode, editConcepto, onConceptoChange }) {
   const estaDescartado = brief.descartado
 
   if (estaDescartado && !mostrarDescartados) return null
 
   const handleEnviarAsana = async () => {
+    const avisos = validarCalidad(brief)
+    if (avisos.length > 0 && onQualityCheck) {
+      // Hay campos faltantes → mostrar modal de advertencia (no bloquea)
+      onQualityCheck({ brief, batchNombre: batch?.nombre || '—', batchFormatos: batch?.formatos || [], avisos })
+      return
+    }
     await enviarAAsana(
       brief,
       batch?.nombre || '—',
@@ -328,6 +348,7 @@ function VistaPorBatch({ navigate }) {
   const [descartadosVisibles, setDescartadosVisibles] = useState({})
   const [eliminandoBatch, setEliminandoBatch] = useState(null)
   const [modalValidacion, setModalValidacion] = useState(null)
+  const [modalQualityCheck, setModalQualityCheck] = useState(null)
   const [modalMover, setModalMover] = useState(null)
   const [batchDestino, setBatchDestino] = useState('')
   const [enviandoBatch, setEnviandoBatch] = useState({})
@@ -942,6 +963,7 @@ function VistaPorBatch({ navigate }) {
                     navigate={navigate}
                     onMissingHook={(briefId) => setModalValidacion({ briefId })}
                     onMoverBatch={(b) => { setModalMover({ briefId: b.id, batchIdActual: b.batch_id }); setBatchDestino('') }}
+                    onQualityCheck={(payload) => setModalQualityCheck(payload)}
                     editMode={editBatchId === batch.id && !todosConceptosIguales}
                     editConcepto={editData.briefs[brief.id] ?? brief.concepto}
                     onConceptoChange={(val) => setEditData((prev) => ({ ...prev, briefs: { ...prev.briefs, [brief.id]: val } }))}
@@ -1005,6 +1027,63 @@ function VistaPorBatch({ navigate }) {
           </div>
         )
       })}
+      {/* ── Modal Quality Check (campos recomendados) ── */}
+      <Modal
+        open={!!modalQualityCheck}
+        onClose={() => setModalQualityCheck(null)}
+        title="⚠️ Quality Check — campos incompletos"
+        footer={
+          <>
+            <button
+              className="btn-ghost-dark"
+              onClick={() => setModalQualityCheck(null)}
+            >
+              Completar primero
+            </button>
+            <button
+              className="btn-crema"
+              onClick={async () => {
+                const { brief, batchNombre, batchFormatos } = modalQualityCheck
+                setModalQualityCheck(null)
+                await enviarAAsana(brief, batchNombre, batchFormatos, setBriefs, {
+                  onMissingHook: (briefId) => setModalValidacion({ briefId }),
+                })
+              }}
+            >
+              <Send size={14} /> Enviar de todas formas
+            </button>
+          </>
+        }
+      >
+        <p style={{ marginBottom: '0.75rem', fontSize: '0.875rem' }}>
+          Este brief tiene{' '}
+          <strong>{modalQualityCheck?.avisos?.length}</strong>{' '}
+          campo{modalQualityCheck?.avisos?.length !== 1 ? 's' : ''} sin completar.
+          Completarlos evita que Asana AI tenga que analizar la tarea.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.875rem' }}>
+          {modalQualityCheck?.avisos?.map((a) => (
+            <div key={a.campo} style={{
+              background: 'rgba(245,158,11,0.07)',
+              border: '1px solid rgba(245,158,11,0.2)',
+              borderLeft: '3px solid #f59e0b',
+              borderRadius: 6,
+              padding: '0.5rem 0.75rem',
+            }}>
+              <div style={{ fontWeight: 700, fontSize: '0.8125rem', color: '#f59e0b' }}>
+                Falta: {a.campo}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
+                {a.msg}
+              </div>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+          Puedes enviar ahora o completar el brief primero — la decisión es tuya.
+        </p>
+      </Modal>
+
       {/* ── Modal Validación (falta hook) ── */}
       <Modal
         open={!!modalValidacion}
