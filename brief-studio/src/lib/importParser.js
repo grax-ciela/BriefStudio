@@ -819,7 +819,11 @@ export async function ejecutarImport(preview, supabase, marcaDefault = '') {
               brief_id: data.id,
               orden:    h.orden,
               texto:    h.texto,
-              estado:   brief.estado_hook || 'shooting',
+              estado:   brief.estado_hook ||
+                        (brief.requiere_grabacion ? 'shooting'
+                          : brief.requiere_edicion  ? 'edicion'
+                          : brief.requiere_diseno   ? 'diseno'
+                          : 'shooting'),
             })))
           if (hErr) console.warn('[importParser] Hook insert error:', hErr.message)
         }
