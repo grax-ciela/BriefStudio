@@ -86,6 +86,18 @@ const HEADER_ALIASES = {
   'hook3':    'hook3',
   'hook 4':   'hook4',
   'hook4':    'hook4',
+  'hook 5':   'hook5',
+  'hook5':    'hook5',
+  'hook 6':   'hook6',
+  'hook6':    'hook6',
+  'hook 7':   'hook7',
+  'hook7':    'hook7',
+  'hook 8':   'hook8',
+  'hook8':    'hook8',
+  'hook 9':   'hook9',
+  'hook9':    'hook9',
+  'hook 10':  'hook10',
+  'hook10':   'hook10',
 
   'guion':    'guion',
   'script':   'guion',
@@ -578,9 +590,9 @@ export function construirPreview(filas, mapeo) {
     const hipotesis = val(fila, 'hipotesis')
     const { descripcion, hooks: hooksEmbed } = extraerHooksDeTexto(hipotesis)
 
-    // Hooks de columnas separadas (hook1..hook4)
+    // Hooks de columnas separadas (hook1..hook10)
     const hooksSep = []
-    for (let h = 1; h <= 4; h++) {
+    for (let h = 1; h <= 10; h++) {
       const t = val(fila, `hook${h}`)
       if (t) hooksSep.push({ orden: h, texto: t })
     }
