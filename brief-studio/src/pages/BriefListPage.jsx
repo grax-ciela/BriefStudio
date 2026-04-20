@@ -255,7 +255,31 @@ function FilaBrief({ brief, batch, index, total, setBriefs, mostrarDescartados, 
           }}>
             {brief.concepto}
           </span>
-          {!estaDescartado && <TagsFaltantes brief={brief} />}
+          {!estaDescartado && (
+            <>
+              {/* Tipo de producción */}
+              {(brief.requiere_grabacion || brief.requiere_edicion || brief.requiere_diseno) && (
+                <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: '0.3rem' }}>
+                  {brief.requiere_grabacion && (
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '0.1rem 0.45rem', borderRadius: 4, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}>
+                      🎬 Grabación
+                    </span>
+                  )}
+                  {brief.requiere_edicion && (
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '0.1rem 0.45rem', borderRadius: 4, background: 'rgba(168,85,247,0.1)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.25)' }}>
+                      ✂️ Edición
+                    </span>
+                  )}
+                  {brief.requiere_diseno && (
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '0.1rem 0.45rem', borderRadius: 4, background: 'rgba(14,165,233,0.1)', color: '#0ea5e9', border: '1px solid rgba(14,165,233,0.25)' }}>
+                      🎨 Diseño
+                    </span>
+                  )}
+                </div>
+              )}
+              <TagsFaltantes brief={brief} />
+            </>
+          )}
           {estaDescartado && (
             <div style={{ marginTop: '0.25rem' }}>
               <span className="tag-descartado">Descartado</span>
