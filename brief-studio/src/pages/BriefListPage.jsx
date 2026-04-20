@@ -403,16 +403,20 @@ function VistaPorBatch({ navigate }) {
     setEnviandoBatch((prev) => ({ ...prev, [batch.id]: true }))
 
     let enviados = 0, sinHook = 0, errores = 0
+    const errMsgs = []
 
     for (const brief of pendientes) {
       const res = await enviarAAsana(brief, batch.nombre, batch.formatos, setBriefs, { silent: true })
       if (res?.sinHook) sinHook++
       else if (res?.ok) enviados++
-      else errores++
+      else {
+        errores++
+        if (res?.error) errMsgs.push(`"${brief.concepto?.slice(0, 40)}…": ${res.error}`)
+      }
     }
 
     setEnviandoBatch((prev) => ({ ...prev, [batch.id]: false }))
-    setModalResultado({ batchNombre: batch.nombre, enviados, sinHook, errores })
+    setModalResultado({ batchNombre: batch.nombre, enviados, sinHook, errores, errMsgs })
   }, [briefs])
 
   const eliminarBatch = async (batch) => {
@@ -1149,9 +1153,24 @@ function VistaPorBatch({ navigate }) {
           </p>
         )}
         {modalResultado?.errores > 0 && (
-          <p style={{ color: '#f87171' }}>
-            ❌ {modalResultado.errores} {modalResultado.errores === 1 ? 'error' : 'errores'} al enviar
-          </p>
+          <div>
+            <p style={{ color: '#f87171', marginBottom: '0.375rem' }}>
+              ❌ {modalResultado.errores} {modalResultado.errores === 1 ? 'error' : 'errores'} al enviar
+            </p>
+            {modalResultado.errMsgs?.length > 0 && (
+              <div style={{
+                background: '#1f1f1f', borderRadius: 6, padding: '0.5rem 0.75rem',
+                fontSize: '0.72rem', color: '#f87171', fontFamily: 'monospace',
+                maxHeight: 160, overflowY: 'auto', marginTop: '0.25rem',
+              }}>
+                {modalResultado.errMsgs.map((m, i) => (
+                  <div key={i} style={{ marginBottom: i < modalResultado.errMsgs.length - 1 ? '0.3rem' : 0 }}>
+                    {m}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </Modal>
 

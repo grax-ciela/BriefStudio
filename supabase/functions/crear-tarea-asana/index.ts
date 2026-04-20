@@ -234,6 +234,9 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const pat = Deno.env.get("ASANA_PAT")
+    if (!pat) throw new Error("ASANA_PAT no configurado como secret")
+
     const { batch, concepto, formato, marca, produccion, hook, angulo, deseo, referencia, hipotesis, hooksCount, objetivo, assigneeOverride, linkBrief } = await req.json()
 
     if (!concepto || !marca) {
